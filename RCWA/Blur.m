@@ -44,7 +44,7 @@ blurimagepad  = ifft2(fftblurimagepad);
 
 %Remove Padding and deplace back pattern
 deplace = floor(ksize/2);
-B = blurimagepad(ksize+1+deplace:ksize+h+deplace,ksize+1+deplace:ksize+w+deplace);
+B = blurimagepad(ksize+deplace+(1:h),ksize+deplace+(1:w));
 
 
 

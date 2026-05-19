@@ -66,12 +66,16 @@ classdef Source < handle
         function sP = sP(s,wavelengthnum,n)
             % caculate vector along polarizations
             % Input: the number of the wavelength
+            k0=s.sk(wavelengthnum);
+            k=k0*s.skinc(n);
             if s.angle(1) == 0
                 a_te = [0;1;0];
             else
-                a_te = cross((s.sk(wavelengthnum)*s.skinc(n)),RCWA.sur_nor)/norm(cross((s.sk(wavelengthnum)*s.skinc(n)),RCWA.sur_nor));
+                a_te = cross(k,RCWA.sur_nor);
+                a_te = a_te/norm(a_te);
             end
-            a_tm = cross(a_te,(s.sk(wavelengthnum)*s.skinc(n)))/norm(cross(a_te,(s.sk(wavelengthnum)*s.skinc(n))));
+            a_tm = cross(a_te,k);
+            a_tm = a_tm/norm(a_tm);
 
             % Composite polarization vector 
             sP = s.polarization(1)*a_te + s.polarization(2)*a_tm;

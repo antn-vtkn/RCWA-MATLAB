@@ -15,10 +15,14 @@ classdef Device < handle
         Pattern cell            % patterns on the substract
         URC                     % caculated convolution matrix of permittivity of the device
         ERC                     % caculated convolution matrix of permeability of the device
+        iERC
     end
     properties
         ER                      % constructed permittivity of the device
         UR                      % constructed permeability of the device
+        improveConvergenceE=0
+        optimizeUconst=0
+        optimizeEconst=0
     end
 
     methods
@@ -44,11 +48,11 @@ classdef Device < handle
         
         % Added by TZH
         % To handle the multi-layer material by hands
-        function AddMaterial_Mannual(Dev,ER,UR,d)
+        function AddMaterial_Manual(Dev,ER,UR,d)
             Dev.ER=ER;
             Dev.UR=UR;
             Dev.length=d;
-            Dev.ilayer=ones(size(ER,3),1); % 全部都是一层
+            Dev.ilayer=ones(size(ER,3),1); % 全部都�?�一层
             % Dev.material{end+1}后续只要不去build layer应该不会用到
     
         end
@@ -161,15 +165,49 @@ classdef Device < handle
         
         
       
- 
+ %  convmat subfunction was VERY inefficient (slow); this code was rewritten to avoid calling it whenever possible
+ %  now convmat was sped up by itself, and these complications are not required
          function ConvDevice(Dev)
              % Purpose: caculate the convolution matrix of the device
              NH  = prod(Dev.PQR);                   %total number of spatial harmonics
-             Dev.URC = ones(NH,NH,sum(Dev.ilayer));
-             Dev.ERC = ones(NH,NH,sum(Dev.ilayer));
-             for n = 1 : sum(Dev.ilayer)
-                 Dev.URC(:,:,n) = convmat(Dev.UR(:,:,n),Dev.PQR);            % 1 layer convolution matrices for ur
-                 Dev.ERC(:,:,n) = convmat(Dev.ER(:,:,n),Dev.PQR);            % 1 layer convolution matrices for ur 
+             Nz=sum(Dev.ilayer);
+%              Dev.URC = ones(NH,NH,Nz);
+             Dev.URC = eye(NH) .* (Dev.UR(1,1,:).*ones(1,1,Nz));
+             for n = 1 : Nz
+                 URvar = Dev.UR(:,:,n);
+                 if Dev.optimizeUconst
+                     URvarm = mean(mean(URvar,1),2);         %does UR vary over (x,y) or not
+                     URvarm = max(max(abs( URvar-URvarm ),[],1),[],2)/URvarm;
+                 else
+                     URvarm=1;
+                 end
+                 if abs(URvarm)<1e-10    %(size(Dev.UR,1)*size(Dev.UR,2)==1 || URvar==0 )
+%                      webrakeherefornow %the eye has already made the URC for this layer
+                 else
+                     Dev.URC(:,:,n) = convmat(URvar,Dev.PQR);            % 1 layer convolution matrices for ur
+                 end
+             end
+%              Dev.ERC = ones(NH,NH,Nz);
+             Dev.ERC = eye(NH) .* (Dev.ER(1,1,:).*ones(1,1,Nz));
+             if Dev.improveConvergenceE
+                 Dev.iERC = eye(NH) .* (Dev.ER(1,1,:).\ones(1,1,Nz));
+             else
+                 Dev.iERC=nan;
+             end
+             for n = 1 : Nz
+                 ERvar = Dev.ER(:,:,n);
+                 if Dev.optimizeEconst
+                     ERvarm = mean(mean(ERvar,1),2); %does ER vary over (x,y) or not
+                     ERvarm = max(max(abs( ERvar-ERvarm ),[],1),[],2)/ERvarm;
+                 else
+                     ERvarm=1;
+                 end
+                if abs(ERvarm)>1e-10
+                 Dev.ERC(:,:,n) = convmat(ERvar,Dev.PQR);            % 1 layer convolution matrices for er 
+                 if Dev.improveConvergenceE
+                     Dev.iERC(:,:,n) = convmat(1./ERvar,Dev.PQR);
+                 end
+                end
              end
              
          end
@@ -179,17 +217,23 @@ classdef Device < handle
              % Input: nlayer--the layer which will be shown
              figure 
              subplot(121);
-             imagesc(real(Dev.ER(:,:,nlayer)'));
+             v=real(Dev.ER(:,:,nlayer)');
+             imagesc(v);
              title(['ER image of layer: ', num2str(nlayer)])
-             axis equal;
-             set(gca,'XAxisLocation','top');
+             xlabel('x (\mum)');
+             ylabel('y (\mum)');
+             if ~isvector(v), axis equal; end
+             axis tight;
+%              set(gca,'XAxisLocation','top');
              colorbar;
              subplot(122);
-             imagesc(real(Dev.UR(:,:,nlayer)'));
-%              xlabel('x (\mum)');
-%              ylabel('y (\mum)');
+             v=real(Dev.UR(:,:,nlayer)');
+             imagesc(v);
+             xlabel('x (\mum)');
+             ylabel('y (\mum)');
              title(['UR image of layer: ', num2str(nlayer)])
-             axis equal;
+             if ~isvector(v), axis equal; end
+             axis tight;
 %              set(gca,'YDir','reverse');
 %              set(gca,'XAxisLocation','top');
 %              colormap(flipud(autumn));
@@ -202,15 +246,17 @@ classdef Device < handle
              figure 
              subplot(121);
              imagesc(real(Dev.ERC(:,:,nlayer)'));
+             xlabel('N_x');
+             ylabel('N_y');
              title(['Convolution ER image of layer: ', num2str(nlayer)])
-             axis equal;
+             axis equal tight;
              colorbar;
              subplot(122);
              imagesc(real(Dev.URC(:,:,nlayer)'));
-             xlabel('x (\mum)');
-             ylabel('y (\mum)');
+             xlabel('N_x');
+             ylabel('N_y');
              title(['Convolution UR image of layer: ', num2str(nlayer)])
-             axis equal;
+             axis equal tight;
              colorbar;
          end
 

@@ -111,8 +111,8 @@ classdef Material < handle
                     error('The wavelength of source don''t match the step of reflectivity')
                 end
             end
-            [row_l,col_l] = find(Mat.n(:,1)== smin(source));
-            [row_h,col_h] = find(Mat.n(:,1)== smax(source));
+            [row_l,col_l] = find(abs(Mat.n(:,1)-smin(source))<1e-10);
+            [row_h,col_h] = find(abs(Mat.n(:,1)-smax(source))<1e-10);
             step = round(q*1000);
             Mat.n = Mat.n(row_l:step:row_h,:);  %reflective index of silicon
             Mat.er = Mat.er(row_l:step:row_h,:);   %permittivity of device

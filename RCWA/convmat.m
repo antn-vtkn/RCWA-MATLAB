@@ -40,19 +40,22 @@ r0 = 1 + floor(Nz/2);
 C = ones(NH,NH);
 for rrow = 1 : R
     for qrow = 1 : Q
-        for prow = 1 : P
+%         for 
+            prow = 1 : P;       %   2. the outer loop is also gone for even better performance
             row = (rrow-1)*Q*P + (qrow-1)*P + prow;
             for rcol = 1 : R
                 for qcol = 1 : Q
-                    for pcol = 1 : P
+%                     for 
+                        pcol = 1 : P;       %	1. the inner "for" loop made this code very slow; much faster now
                         col = (rcol-1)*Q*P + (qcol-1)*P + pcol;
-                        pfft = p(prow) - p(pcol);
+                        pfft = p(prow)' - p(pcol);      %3. the vector transposition is required for the outer loop removal
                         qfft = q(qrow) - q(qcol);
                         rfft = r(rrow) - r(rcol);
-                        C(row,col) = A(p0+pfft,q0+qfft,r0+rfft);
-                    end
+                        C(row,col) = reshape(A(p0+pfft,q0+qfft,r0+rfft),[P,P]); %4. this modification is required for the outer loop removal
+%                         C(row,col) = A(p0+pfft,q0+qfft,r0+rfft);
+%                     end
                 end
             end
-        end
+%         end
     end
 end

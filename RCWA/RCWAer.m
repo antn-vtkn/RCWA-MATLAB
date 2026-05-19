@@ -1,4 +1,4 @@
-function [R,T] = RCWAer(ObjRCWA,source,device,wavenumber)
+function [R,T,varargout] = RCWAer(ObjRCWA,source,device,wavenumber)
 % This function caculate the reflection and transmission 
 % Inside this function there is two sub-functions 
 % one named Dev_build construct the convolution matrices
@@ -26,7 +26,7 @@ function [R,T] = RCWAer(ObjRCWA,source,device,wavenumber)
 error(nargchk(4,4,nargin));
 
 % VERIFY NUMBER OF OUTPUT ARGUMENTS
-error(nargchk(2,2,nargout));
+error(nargchk(2,4,nargout));
 
 %% EXTRACT PARAMETERS
 % Reflective and reflective region parameters
@@ -36,6 +36,9 @@ Trn.ur2 = ObjRCWA.trnerur(2);                         %permeability in transmiss
 Trn.er2 = ObjRCWA.trnerur(1);                         %permittivity in transmission region
 URC = device.URC;                                     %convolution matrix of ur
 ERC = device.ERC;                                     %convolution matrix of er
+if device.improveConvergenceE
+    iERC=device.iERC;
+end
 
 PQR = device.PQR;
 
@@ -67,8 +70,8 @@ ky = kinc(2) - 2*pi*n/(k0*device.xydimension(2));
 
 
 %Defensive code for the case when lam equals period
-kx(kx==0)=0.0000001;
-ky(ky==0)=0.0000001;
+kx(kx==0)=1e-7;
+ky(ky==0)=1e-7;
 
 
 
@@ -115,12 +118,22 @@ S_G_21 = I;
 % Main loop for each layer 
 for n = 1: sum(device.ilayer) 
     % Caculate Parameters for each Layer 
-    P = [Kx/ERC(:,:,n)*Ky, URC(:,:,n)-Kx/ERC(:,:,n)*Kx ;...
-            Ky/ERC(:,:,n)*Ky-URC(:,:,n), -Ky/ERC(:,:,n)*Kx];     % matrix concerning magnetic  part 
-    Q = [Kx/URC(:,:,n)*Ky, ERC(:,:,n)-Kx/URC(:,:,n)*Kx ;...
-            Ky/URC(:,:,n)*Ky-ERC(:,:,n), -Ky/URC(:,:,n)*Kx];     % matrix concerning electrical part 
-    OMEGA2 = P*Q;
-    [W,LAM] = eig(OMEGA2);                              % compute eigen-modes 
+    KxiERC=Kx/ERC(:,:,n);
+    KyiERC=Ky/ERC(:,:,n);
+    P = [KxiERC*Ky, URC(:,:,n)-KxiERC*Kx ;...
+            KyiERC*Ky-URC(:,:,n), -KyiERC*Kx];     % matrix concerning magnetic  part 
+    KxiURC=Kx/URC(:,:,n);
+    KyiURC=Ky/URC(:,:,n);
+   if device.improveConvergenceE
+    Q = [KxiURC*Ky, ERC(:,:,n)-KxiURC*Kx ;...
+            KyiURC*Ky-inv(iERC(:,:,n)), -KyiURC*Kx];     % matrix concerning electrical part 
+   else
+    Q = [KxiURC*Ky, ERC(:,:,n)-KxiURC*Kx ;...
+            KyiURC*Ky-ERC(:,:,n), -KyiURC*Kx];     % matrix concerning electrical part 
+   end
+%     OMEGA2 = P*Q;
+%     [W,LAM] = eig(OMEGA2);                              % compute eigen-modes 
+    [W,LAM] = eig(full(P*Q));                              % compute eigen-modes 
     LAM = sqrt(LAM);
     V = Q*W/LAM;                                        % compute the V concerning magnetic  part 
     
@@ -131,12 +144,25 @@ for n = 1: sum(device.ilayer)
     end
     
     % Calculate Scattering Matrix for each layer
-    A = W\W0 + V\V0;
-    B = W\W0 - V\V0;
+    iWW0=W\W0;
+    iVV0=V\V0;
+    A = iWW0 + iVV0;
+    B = iWW0 - iVV0;
+    BiA=B/A;
 %     X = expm(-LAM*k0*L(n));
     X = diag(exp(-diag(LAM)*k0*L(n)));
-    S11 = (A-X*B/A*X*B)\(X*B/A*X*A-B); % caculate reflection matrix
-    S12 = (A-X*B/A*X*B)\X*(A-B/A*B);      % caculate transmission matrix 
+    XBiAX=X*BiA*X;
+   if 0
+    izn=inv(A-XBiAX*B);       %this is a bit fastest but might be unsafe
+    S11 = izn*(XBiAX*A-B); % caculate reflection matrix
+    S12 = izn*X*(A-BiA*B);      % caculate transmission matrix 
+   else
+    zn=(A-XBiAX*B); 
+    S11 = zn\(XBiAX*A-B); % caculate reflection matrix 
+    S12 = zn\X*(A-BiA*B);      % caculate transmission matrix  
+   end
+%     S11 = (A-X*B/A*X*B)\(X*B/A*X*A-B); % caculate reflection matrix
+%     S12 = (A-X*B/A*X*B)\X*(A-B/A*B);      % caculate transmission matrix 
     S22 = S11;
     S21 = S12;
     
@@ -160,12 +186,14 @@ if sum(ObjRCWA.referur ~= [1,1]) + sum(ObjRCWA.trnerur ~= [1,1]) ~= 0
     LAM_ref = [-1i*Kz_ref Z0; Z0 -1i*Kz_ref];
     V_ref = Q_ref/LAM_ref;                                   %eigen-modes for the magnetic fields in free space
     % Calculate Scattering Matrix for reflection region
-    A_ref = W0\W_ref + V0\V_ref;
-    B_ref = W0\W_ref - V0\V_ref;
+    iW0W=W0\W_ref;
+    iV0V=V0\V_ref;
+    A_ref = iW0W + iV0V;
+    B_ref = iW0W - iV0V;
+    S22_ref = B_ref/A_ref;
     S11_ref = -A_ref\B_ref;                                         % caculate reflection matrix in the reflection region
     S12_ref = 2*eye(2*NH)/A_ref;                                              % caculate transmission matrix in the reflection region
-    S21_ref = 1/2*(A_ref-B_ref/A_ref*B_ref);
-    S22_ref = B_ref/A_ref;
+    S21_ref = 1/2*(A_ref-S22_ref*B_ref);
     
     % Caculate transmission-side scattering matrix
     Q_trn = 1/Trn.ur2*[Kx*Ky, Trn.er2*Trn.ur2*I0-Kx*Kx;...
@@ -176,11 +204,14 @@ if sum(ObjRCWA.referur ~= [1,1]) + sum(ObjRCWA.trnerur ~= [1,1]) ~= 0
     V_trn = Q_trn/LAM_trn;
     
     % Calculate Scattering Matrix for transmission region
-    A_trn = W0\W_trn + V0\V_trn;
-    B_trn = W0\W_trn - V0\V_trn;
+    iW0W=W0\W_trn;
+    iV0V=V0\V_trn;
+    A_trn = iW0W + iV0V;
+    B_trn = iW0W - iV0V;
     S11_trn = B_trn/A_trn;                                         % caculate reflection matrix in the reflection region
-    S12_trn = 1/2*(A_trn-B_trn/A_trn*B_trn);                                              % caculate transmission matrix in the reflection region
+    S12_trn = 1/2*(A_trn-S11_trn*B_trn);                                              % caculate transmission matrix in the reflection region
     S21_trn = 2*inv(A_trn);
+%     S21_trn = 2*eye(2*NH)/(A_trn);
     S22_trn = -A_trn\B_trn;
     
     % Connect the reflection region scattering matrix and transmission region
@@ -248,13 +279,18 @@ X_trn = E_trn(1:NH);
 Y_trn = E_trn(NH+1:2*NH);
 
 % Caculate longitudinal field components
-Z_ref = -Kz_ref\(Kx*X_ref + Ky*Y_ref);
+Z_ref = -Kz_ref\(Kx*X_ref + Ky*Y_ref);      %div(E)==0
 Z_trn = -Kz_trn\(Kx*X_trn + Ky*Y_trn);
 
 % Caculate Reflected and Tranmitted power
 R = real(-Kz_ref/kinc(3))*(abs(X_ref).^2+abs(Y_ref).^2+abs(Z_ref).^2);
 T = real((Ref.ur1/Trn.ur2)*(Kz_trn/kinc(3)))*(abs(X_trn).^2+abs(Y_trn).^2+abs(Z_trn).^2);
-
+if nargout>=3
+    varargout{1}=E_ref;
+end
+if nargout>=4
+    varargout{2}=E_trn;
+end
 %% Record parameters for caculating field in the device
 
 % Record the parameters for reconstructe E and H field
