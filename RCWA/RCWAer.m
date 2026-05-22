@@ -131,11 +131,20 @@ for n = 1: sum(device.ilayer)
     Q = [KxiURC*Ky, ERC(:,:,n)-KxiURC*Kx ;...
             KyiURC*Ky-ERC(:,:,n), -KyiURC*Kx];     % matrix concerning electrical part 
    end
+
+   if 0*1
 %     OMEGA2 = P*Q;
 %     [W,LAM] = eig(OMEGA2);                              % compute eigen-modes 
     [W,LAM] = eig(full(P*Q));                              % compute eigen-modes 
     LAM = sqrt(LAM);
     V = Q*W/LAM;                                        % compute the V concerning magnetic  part 
+   else
+    [W,LAM] = eig(full(gpuArray(P*Q)));                              % compute eigen-modes 
+    LAM = gather(sqrt(LAM));
+    W=gather(W);
+    V = Q*W/LAM;                                        % compute the V concerning magnetic  part 
+    % LAM
+   end
     
     % Record the parameters for reconstructe E and H field
     if CondRecordField == 1
