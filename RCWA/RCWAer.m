@@ -34,10 +34,10 @@ Ref.ur1 = ObjRCWA.referur(2);                         %permeability in reflectio
 Ref.er1 = ObjRCWA.referur(1);                         %permittivity in reflection region 
 Trn.ur2 = ObjRCWA.trnerur(2);                         %permeability in transmission region 
 Trn.er2 = ObjRCWA.trnerur(1);                         %permittivity in transmission region
-URC = device.URC;                                     %convolution matrix of ur
-ERC = device.ERC;                                     %convolution matrix of er
+URC = gpuArray(device.URC);                                     %convolution matrix of ur
+ERC = gpuArray(device.ERC);                                     %convolution matrix of er
 if device.improveConvergenceE
-    iERC=device.iERC;
+    iERC=gpuArray(device.iERC);
 end
 
 PQR = device.PQR;
@@ -109,27 +109,28 @@ V_trn = V0;
 % Initialize Global Scattering Matix
 I = eye(NH*2);
 Z = zeros(NH*2);
-S_G_11 = Z;
-S_G_12 = I;
-S_G_22 = Z;
-S_G_21 = I;
-
+S_G_11 = gpuArray(Z);
+S_G_12 = gpuArray(I);
+S_G_22 = S_G_11;
+S_G_21 = S_G_12;
+Kxg=full(gpuArray(Kx));
+Kyg=full(gpuArray(Ky));
 
 % Main loop for each layer 
 for n = 1: sum(device.ilayer) 
     % Caculate Parameters for each Layer 
-    KxiERC=Kx/ERC(:,:,n);
-    KyiERC=Ky/ERC(:,:,n);
-    P = [KxiERC*Ky, URC(:,:,n)-KxiERC*Kx ;...
-            KyiERC*Ky-URC(:,:,n), -KyiERC*Kx];     % matrix concerning magnetic  part 
-    KxiURC=Kx/URC(:,:,n);
-    KyiURC=Ky/URC(:,:,n);
+    KxiERC=Kxg/ERC(:,:,n);
+    KyiERC=Kyg/ERC(:,:,n);
+    P = [KxiERC*Kyg, URC(:,:,n)-KxiERC*Kxg ;...
+            KyiERC*Kyg-URC(:,:,n), -KyiERC*Kxg];     % matrix concerning magnetic  part 
+    KxiURC=Kxg/URC(:,:,n);
+    KyiURC=Kyg/URC(:,:,n);
    if device.improveConvergenceE
-    Q = [KxiURC*Ky, ERC(:,:,n)-KxiURC*Kx ;...
-            KyiURC*Ky-inv(iERC(:,:,n)), -KyiURC*Kx];     % matrix concerning electrical part 
+    Q = [KxiURC*Kyg, ERC(:,:,n)-KxiURC*Kxg ;...
+            KyiURC*Kyg-inv(iERC(:,:,n)), -KyiURC*Kxg];     % matrix concerning electrical part 
    else
-    Q = [KxiURC*Ky, ERC(:,:,n)-KxiURC*Kx ;...
-            KyiURC*Ky-ERC(:,:,n), -KyiURC*Kx];     % matrix concerning electrical part 
+    Q = [KxiURC*Kyg, ERC(:,:,n)-KxiURC*Kxg ;...
+            KyiURC*Kyg-ERC(:,:,n), -KyiURC*Kxg];     % matrix concerning electrical part 
    end
 %     OMEGA2 = P*Q;
 %     [W,LAM] = eig(OMEGA2);                              % compute eigen-modes 
@@ -139,8 +140,8 @@ for n = 1: sum(device.ilayer)
     
     % Record the parameters for reconstructe E and H field
     if CondRecordField == 1
-        ObjRCWA.field.W_V{1,n} = [W,W;-V,V];
-        ObjRCWA.field.LAM{1,n} = sparse(LAM);
+        ObjRCWA.field.W_V{1,n} = gather([W,W;-V,V]);
+        ObjRCWA.field.LAM{1,n} = gather(sparse(LAM));
     end
     
     % Calculate Scattering Matrix for each layer
@@ -174,6 +175,11 @@ for n = 1: sum(device.ilayer)
     S_G_21 = F*S_G_21;
     S_G_22 = S22 + F*S_G_22*S12;
 end
+
+S_G_11 = gather(S_G_11);
+S_G_12 = gather(S_G_12);
+S_G_22 = gather(S_G_22);
+S_G_21 = gather(S_G_21);
 
 %% Connect the device matrix to external regions (This part is not necessary if ref and trn parts is in free space)
 if sum(ObjRCWA.referur ~= [1,1]) + sum(ObjRCWA.trnerur ~= [1,1]) ~= 0
