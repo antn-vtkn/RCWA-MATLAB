@@ -32,16 +32,16 @@ ConstructField(Simul);% 用于记录场
 %% To obtain the field in specific plane
 % Thefield grid
 field=Field();
-XYGird=[100 100];
+XYGird=[20 10];
 ZLayer=0.1;
 GetLayerField(field,XYGird,ZLayer);
 RCWARun(Simul,S,Dev,field);
 ShowLayerField(field);
 
 %% To obatin the field in xyz grid
-field=Field();
-XYGird=[100 100];
+field2=Field();
+XYGird=[20 10];
 Z_Gird=linspace(0,0.5,10);
-GetGridField(field,XYGird,Z_Gird);
-RCWARun(Simul,S,Dev,field);
-ShowGridField(field);
+GetGridField(field2,XYGird,Z_Gird);
+RCWARun(Simul,S,Dev,field2);
+ShowGridField(field2);

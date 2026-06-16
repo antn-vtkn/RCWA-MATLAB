@@ -31,14 +31,14 @@ classdef Cylinder < PatternShape
             x0 = Cylin.center(1);
             y0 = Cylin.center(2);
 
+            Lx = Dev.xydimension(1);
+            Ly = Dev.xydimension(2);
             r = Cylin.radius;
-            if x0-r <= 0 || y0-r <= 0
+            if x0-r <= 0 || y0-r <= 0 || x0+r >= Lx || y0+r >= Ly
                 error('The radius is too large!')
             end
             Nx = Dev.idimension(1);
             Ny = Dev.idimension(2);
-            Lx = Dev.xydimension(1);
-            Ly = Dev.xydimension(2);
 %             ER = Dev.ER;
 %             UR = Dev.UR;
             dx = Lx/Nx;
@@ -54,8 +54,8 @@ classdef Cylinder < PatternShape
                     ny2 = real(sqrt(r^2 - (n*dx-x0)^2)+y0);
                     ny1 = round(ny1/dy);
                     ny2 = round(ny2/dy);
-                    Dev.ER(n,ny1:ny2,Cylin.nlayer)=Cylin.er;
-                    Dev.UR(n,ny1:ny2,Cylin.nlayer)=Cylin.ur;
+                    Dev.ER(n,ny1:ny2,Cylin.nlayer,:)=Cylin.er;
+                    Dev.UR(n,ny1:ny2,Cylin.nlayer,:)=Cylin.ur;
                 end
             elseif nargin == 3
                 for n = nx1:nx2
@@ -63,8 +63,8 @@ classdef Cylinder < PatternShape
                     ny2 = real(sqrt(r^2 - (n*dx-x0)^2)+y0);
                     ny1 = round(ny1/dy);
                     ny2 = round(ny2/dy);
-                    Dev.ER(n,ny1:ny2,Cylin.nlayer)=Cylin.er(varargin{1},2);
-                    Dev.UR(n,ny1:ny2,Cylin.nlayer)=Cylin.ur(varargin{1},2);
+                    Dev.ER(n,ny1:ny2,Cylin.nlayer,:)=Cylin.er(varargin{1},2);
+                    Dev.UR(n,ny1:ny2,Cylin.nlayer,:)=Cylin.ur(varargin{1},2);
                 end
             else
                 error('Check input number')

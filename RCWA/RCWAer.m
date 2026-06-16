@@ -35,9 +35,12 @@ Ref.er1 = ObjRCWA.referur(1);                         %permittivity in reflectio
 Trn.ur2 = ObjRCWA.trnerur(2);                         %permeability in transmission region 
 Trn.er2 = ObjRCWA.trnerur(1);                         %permittivity in transmission region
 URC = device.URC;                                     %convolution matrix of ur
+if ndims(URC)>3, URC=URC(:,:,:,wavenumber); end
 ERC = device.ERC;                                     %convolution matrix of er
+if ndims(ERC)>3, ERC=ERC(:,:,:,wavenumber); end
 if device.improveConvergenceE
     iERC=device.iERC;
+    if ndims(iERC)>3, iERC=iERC(:,:,:,wavenumber); end
 end
 
 PQR = device.PQR;
@@ -65,8 +68,10 @@ m = [-floor(PQR(1)/2):floor(PQR(1)/2)]';
 n = [-floor(PQR(2)/2):floor(PQR(2)/2)]';
 
 %Compute wave vector components 
-kx = kinc(1) - 2*pi*m/(k0*device.xydimension(1));
-ky = kinc(2) - 2*pi*n/(k0*device.xydimension(2));
+kx = kinc(1) +(2*(kinc(1)>=0)-1)* 2*pi*m/(k0*device.xydimension(1));
+ky = kinc(2) +(2*(kinc(2)>=0)-1)* 2*pi*n/(k0*device.xydimension(2));
+% kx = kinc(1) - 2*pi*m/(k0*device.xydimension(1));
+% ky = kinc(2) - 2*pi*n/(k0*device.xydimension(2));
 
 
 %Defensive code for the case when lam equals period
@@ -240,7 +245,7 @@ delta = zeros(NH,1);
 delta(ceil(NH/2),1) = 1;
 
 % Compute source feild
-sP = source.sP(wavenumber,Ref.n);
+[sP,sQ] = source.sP(wavenumber,Ref.n);
 
 
 % % caculate polarization vector
@@ -259,7 +264,8 @@ sP = source.sP(wavenumber,Ref.n);
 % Source.P = Source.P/norm(Source.P);
 
 % Compute source feild
-E_src = [sP(1)*delta;sP(2)*delta];
+E_src = [delta.*[sP(1),sQ(1)];delta.*[sP(2),sQ(2)]];
+% E_src = [sP(1)*delta;sP(2)*delta];
 
 % Compute source modal coefficients
 C_src = W_ref\E_src;
@@ -273,10 +279,10 @@ E_ref = W_ref*C_ref;
 E_trn = W_trn*C_trn;
 
 % Compute x and y components in the reflection and tranmission part
-X_ref = E_ref(1:NH);
-Y_ref = E_ref(NH+1:2*NH);
-X_trn = E_trn(1:NH);
-Y_trn = E_trn(NH+1:2*NH);
+X_ref = E_ref(1:NH,:);
+Y_ref = E_ref(NH+1:2*NH,:);
+X_trn = E_trn(1:NH,:);
+Y_trn = E_trn(NH+1:2*NH,:);
 
 % Caculate longitudinal field components
 Z_ref = -Kz_ref\(Kx*X_ref + Ky*Y_ref);      %div(E)==0

@@ -42,4 +42,4 @@ legend('Transmission','Reflection','location','best');
 xlim([0.5 0.55]);
 xlabel('Frequency (2\pi c/a)');
 ylabel('Transmission and Reflection');
-saveas(gcf,'./figures/TEST2D_S4_CirinRect.png_');
+saveas(gcf,'./figures/TEST2D_S4_CirinRect_.png');

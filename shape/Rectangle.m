@@ -41,13 +41,13 @@ classdef Rectangle < PatternShape
             y0 = Rect.center(2);
             rectx = Rect.rectxy(1);
             recty = Rect.rectxy(2);
-            if x0-rectx/2 < 0 || y0-recty/2 < 0
+            Lx = Dev.xydimension(1);
+            Ly = Dev.xydimension(2);
+            if x0-rectx/2 < 0 || y0-recty/2 < 0 || x0+rectx/2 > Lx || y0+recty/2 > Ly
                 error('The rectangle is too large!')
             end
             Nx = Dev.idimension(1);
             Ny = Dev.idimension(2);
-            Lx = Dev.xydimension(1);
-            Ly = Dev.xydimension(2);
 %             ER = Dev.ER;
 %             UR = Dev.UR;            
             dx = Lx/Nx;
@@ -61,24 +61,11 @@ classdef Rectangle < PatternShape
             ny1 = ny0-ny+1;
             ny2 = ny0+ny-1;
             if nargin == 2
-                Dev.ER(nx1:nx2,ny1:ny2,Rect.nlayer) =  Rect.er;
-                Dev.UR(nx1:nx2,ny1:ny2,Rect.nlayer) =  Rect.ur;
-                
-%                 for n = nx1:nx2
-%                     for m = ny1:ny2
-%                         Dev.ER(n,m,Rect.nlayer) =  Rect.er;
-%                         Dev.UR(n,m,Rect.nlayer) =  Rect.ur;
-%                     end
-%                 end
+                Dev.ER(nx1:nx2,ny1:ny2,Rect.nlayer,:) =  Rect.er;
+                Dev.UR(nx1:nx2,ny1:ny2,Rect.nlayer,:) =  Rect.ur;
             elseif nargin == 3
-                Dev.ER(nx1:nx2,ny1:ny2,Rect.nlayer) = Rect.er(varargin{1},2);
-                Dev.UR(nx1:nx2,ny1:ny2,Rect.nlayer) = Rect.ur(varargin{1},2);
-%                 for n = nx1:nx2
-%                     for m = ny1:ny2
-%                         Dev.ER(n,m,Rect.nlayer) =  Rect.er(varargin{1},2);
-%                         Dev.UR(n,m,Rect.nlayer) =  Rect.ur(varargin{1},2);
-%                     end
-%                 end
+                Dev.ER(nx1:nx2,ny1:ny2,Rect.nlayer,:) = Rect.er(varargin{1},2);
+                Dev.UR(nx1:nx2,ny1:ny2,Rect.nlayer,:) = Rect.ur(varargin{1},2);
             else
                 error('Check input number')
             end

@@ -18,7 +18,7 @@ d2=WL0/4/n2/1000;
 
 period=1;
 epssup=1;epssdn=1;
-num_xy=21;
+num_xy=3-2;
 
 num_har=1;
 %%
@@ -49,7 +49,7 @@ d(2*l-1,1)=d1;
 d(2*l,1)=d2;
 end
 Simul_TZH.WhetherBuildLayer=0;
-AddMaterial_Mannual(DevTZH,ER,UR,d);
+AddMaterial_Manual(DevTZH,ER,UR,d);
 %%
 RCWARun(Simul_TZH,S,DevTZH)
 PlotRT(Simul_TZH)

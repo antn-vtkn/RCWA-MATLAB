@@ -58,8 +58,8 @@ classdef Triangle < PatternShape
                     nx = round(f*SideLen/Lx*Nx); 
                     nx1 = 1 + floor((Nx - nx)/2)-nxm; 
                     nx2 = nx1 + nx; 
-                    Dev.ER(nx1:nx2,ny,Tri.nlayer) = Tri.er;
-                    Dev.UR(nx1:nx2,ny,Tri.nlayer) = Tri.ur;
+                    Dev.ER(nx1:nx2,ny,Tri.nlayer,:) = Tri.er;
+                    Dev.UR(nx1:nx2,ny,Tri.nlayer,:) = Tri.ur;
                 end
             elseif nargin == 3
                 for ny = ny1 : ny2 
@@ -67,8 +67,8 @@ classdef Triangle < PatternShape
                     nx = round(f*SideLen/Lx*Nx); 
                     nx1 = 1 + floor((Nx - nx)/2)-nxm; 
                     nx2 = nx1 + nx; 
-                    Dev.ER(nx1:nx2,ny,Tri.nlayer) = Tri.er(varargin{1},2);
-                    Dev.UR(nx1:nx2,ny,Tri.nlayer) = Tri.ur(varargin{1},2);
+                    Dev.ER(nx1:nx2,ny,Tri.nlayer,:) = Tri.er(varargin{1},2);
+                    Dev.UR(nx1:nx2,ny,Tri.nlayer,:) = Tri.ur(varargin{1},2);
                 end
             else
                 error('Check input number')

@@ -35,9 +35,7 @@ classdef Field < handle
             % This function get the parameters which will be caculated
             % later 
             if numel(CoordinateXYZ) == 3
-                Field.CoordXYZ(1) = CoordinateXYZ(1);
-                Field.CoordXYZ(2) = CoordinateXYZ(2);
-                Field.CoordXYZ(3) = CoordinateXYZ(3);
+                Field.CoordXYZ(1:3) = CoordinateXYZ(1:3);%what is this indexing for?
             else
                 error('Check the number of the Coordinate')
             end
@@ -46,8 +44,7 @@ classdef Field < handle
         function GetLayerField(Field,XYGird,ZLayer)
             % This function get the layer parameters which will be caculated
             if numel(XYGird) == 2
-                Field.GridXY(1) = XYGird(1);
-                Field.GridXY(2) = XYGird(2);
+                Field.GridXY(1:2) = XYGird(1:2);%what is this indexing for?
             else
                 error('Check the number in the X and Y direction');
             end
@@ -57,8 +54,7 @@ classdef Field < handle
         function GetGridField(Field,XYGird,Z_Gird)
             % This function get the grid parameters which will be caculated
             if numel(XYGird) == 2
-                Field.GridXY(1) = XYGird(1);
-                Field.GridXY(2) = XYGird(2);
+                Field.GridXY(1:2) = XYGird(1:2);%what is this indexing for?
             else
                 error('Check the number in the X and Y direction')
             end
@@ -97,7 +93,7 @@ classdef Field < handle
             
             % cacuate E and H at this layer
             Nx = Field.GridXY(1);
-            Ny = Field.GridXY(1);
+            Ny = Field.GridXY(2);
             Lx = Field.xydimension(1);
             Ly = Field.xydimension(2);
             % initilize grid
@@ -184,7 +180,7 @@ classdef Field < handle
             
             % cacuate E and H at this layer
             Nx = Field.GridXY(1);
-            Ny = Field.GridXY(1);
+            Ny = Field.GridXY(2);
             Lx = Field.xydimension(1);
             Ly = Field.xydimension(2);
             % initilize grid

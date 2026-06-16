@@ -91,10 +91,25 @@ classdef RCWA < handle
             
             ObjRCWA.source = source;
             ObjRCWA.device = device;
+            PQR=[device.PQR(1:2),2];%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if  ObjRCWA.dispersion == 0             % deal with dispersion of the mateiral
                 if ObjRCWA.WhetherBuildLayer==1
-                BuildLayer(ObjRCWA.device);
-                BuildPattern(ObjRCWA.device);
+                    BuildLayer(ObjRCWA.device);
+                    BuildPattern(ObjRCWA.device);
+                end
+                if ObjRCWA.BlurCoef ~= 0         %open the blur effect
+                    BlurDevice(ObjRCWA.device,ObjRCWA.BlurCoef)
+                end
+                if ObjRCWA.ShrinkCoef ~= 0       %open the shrink effect
+                    ShrinkDevice(ObjRCWA.device,ObjRCWA.ShrinkCoef)
+                end
+                ConvDevice(ObjRCWA.device);
+            end
+            NLAM = source.snum;                  %determine how many simulations
+            if ObjRCWA.dispersion == 1
+                if ObjRCWA.WhetherBuildLayer==1
+                    BuildLayer(ObjRCWA.device,1 : NLAM);
+                    BuildPattern(ObjRCWA.device,1 : NLAM);
                 end
                 if ObjRCWA.BlurCoef ~= 0         %open the blur effect
                     BlurDevice(ObjRCWA.device,ObjRCWA.BlurCoef)
@@ -113,7 +128,7 @@ classdef RCWA < handle
             
             if ObjRCWA.RecordDifOrder == 1             % initialize matrix to record diffrection for each order
 %                 x_k = size(device.PQR);
-                Ref_order_ = zeros(device.PQR(1),device.PQR(2),source.snum);            % record refection in each order
+                Ref_order_ = zeros(PQR(1),PQR(2),NLAM,PQR(3));            % record refection in each order
                 Trn_order_ = Ref_order_;            % record transmission in each order
             end
 %             if ObjRCWA.RecordField == 1             % initialize Filed object to be prepared to record field
@@ -125,31 +140,19 @@ classdef RCWA < handle
 %                     ObjRCWA.field(wavenum).LAM = cell(1,LayerNum);
 %                 end
 %             end
-            NLAM = source.snum;                  %determine how many simulations
-            for nlam = 1 : NLAM
-                if ObjRCWA.dispersion == 1
-                    if ObjRCWA.WhetherBuildLayer==1
-                    BuildLayer(ObjRCWA.device,nlam);
-                    BuildPattern(ObjRCWA.device,nlam);
-                    end
-                    if ObjRCWA.BlurCoef ~= 0         %open the blur effect
-                        BlurDevice(ObjRCWA.device,ObjRCWA.BlurCoef)
-                    end
-                    if ObjRCWA.ShrinkCoef ~= 0       %open the shrink effect
-                        ShrinkDevice(ObjRCWA.device,ObjRCWA.ShrinkCoef)
-                    end
-                    ConvDevice(ObjRCWA.device);
-                end
+% %                 ObjRCWA.R = nan(1,NLAM);
+% %                 ObjRCWA.T = nan(1,NLAM);
+            parfor nlam = 1 : NLAM
                 % Make patterns in the layer input:[center],radius,[in which ilayer],[er, ur]
                 [Ref,Trn] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam);
                 if ObjRCWA.RecordDifOrder == 1
-                    Ref_order_(:,:,nlam) = reshape(Ref,device.PQR);            % record refection in each order
-                    Trn_order_(:,:,nlam) = reshape(Trn,device.PQR);            % record transmission in each order
+                    Ref_order_(:,:,nlam,:) = reshape(Ref,PQR);            % record refection in each order
+                    Trn_order_(:,:,nlam,:) = reshape(Trn,PQR);            % record transmission in each order
                 end
-                Ref = sum(Ref(:));
-                Trn = sum(Trn(:));
-                ObjRCWA.R(nlam) = 100*Ref;
-                ObjRCWA.T(nlam) = 100*Trn;
+                Ref = sum(Ref,1);
+                Trn = sum(Trn,1);
+                RR(nlam,:) = 100*Ref;
+                TT(nlam,:) = 100*Trn;
                 % caculate field in device 
                 if ObjRCWA.RecordField == 1
                     if ObjRCWA.field.CoordXYZ ~= 0
@@ -160,12 +163,16 @@ classdef RCWA < handle
                         ObjRCWA.field.CaculateGridField;
                     end
                 end
+            end
+            ObjRCWA.R = RR;
+            ObjRCWA.T = TT;
+            for nlam = 1 : NLAM
                 if ObjRCWA.ShowProcess == 1
                     waitbar(nlam/NLAM,h,'I am working, please don''t disturb me ...');
-                    if getappdata(h,'canceling')
-                        delete(h)
-                        break
-                    end
+%                     if getappdata(h,'canceling')
+%                         delete(h)
+%                         break
+%                     end
                 end
             end
             if ObjRCWA.RecordDifOrder == 1 

@@ -59,8 +59,8 @@ classdef Ellipse < PatternShape
                     ny2 = real(sqrt(1-((n*dx-x0)^2)/r1^2)*r2+y0);
                     ny1 = round(ny1/dy);
                     ny2 = round(ny2/dy);
-                    Dev.ER(n,ny1:ny2,Ellip.nlayer)=Ellip.er;
-                    Dev.UR(n,ny1:ny2,Ellip.nlayer)=Ellip.ur;
+                    Dev.ER(n,ny1:ny2,Ellip.nlayer,:)=Ellip.er;
+                    Dev.UR(n,ny1:ny2,Ellip.nlayer,:)=Ellip.ur;
                 end
             elseif nargin == 3
                 for n = nx1:nx2
@@ -68,8 +68,8 @@ classdef Ellipse < PatternShape
                     ny2 = real(sqrt(1-((n*dx-x0)^2)/r1^2)*r2+y0);
                     ny1 = round(ny1/dy);
                     ny2 = round(ny2/dy);
-                    Dev.ER(n,ny1:ny2,Ellip.nlayer)=Ellip.er(varargin{1},2);
-                    Dev.UR(n,ny1:ny2,Ellip.nlayer)=Ellip.ur(varargin{1},2);
+                    Dev.ER(n,ny1:ny2,Ellip.nlayer,:)=Ellip.er(varargin{1},2);
+                    Dev.UR(n,ny1:ny2,Ellip.nlayer,:)=Ellip.ur(varargin{1},2);
                 end
             else
                 error('Check input number')

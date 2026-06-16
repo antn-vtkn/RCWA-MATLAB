@@ -12,10 +12,12 @@ classdef Device < handle
                                 % of point along y in real-space grid
         ilayer                  % number of the layer
         PQR                     % number of spatial harmonics along x and y (HAS TO BE ODD NUM)
+        K1                      % lattice vectors in reciprocal space
+        K2
         Pattern cell            % patterns on the substract
         URC                     % caculated convolution matrix of permittivity of the device
         ERC                     % caculated convolution matrix of permeability of the device
-        iERC
+        iERC                    % caculated convolution matrix of inverse permeability of the device for calculation with improveConvergenceE; works well for K1~=0; K2==0
     end
     properties
         ER                      % constructed permittivity of the device
@@ -36,7 +38,16 @@ classdef Device < handle
             else
                 error('Check the device dimension')
             end
+            PQR=PQR+mod(PQR+1,2);%make the value(s) odd
             Dev.PQR = PQR;
+            K=2*pi./xydimension.*(PQR>1);
+            if PQR(1)>=PQR(2)
+                Dev.K1=[K(1);0];
+                Dev.K2=[0;K(2)];
+            else
+                Dev.K2=[K(1);0];
+                Dev.K1=[0;K(2)];
+            end
         end
         
         function AddLayer(Dev,material,length,ilayer)
@@ -88,17 +99,19 @@ classdef Device < handle
             % Output: constructed er and ur
             % INITIALIZE LAYERS TO er AND ur
             if nargin == 2
-                Dev.ER = ones(Dev.idimension(1),Dev.idimension(2),sum(Dev.ilayer));
-                Dev.UR = ones(Dev.idimension(1),Dev.idimension(2),sum(Dev.ilayer));
+                wavelengthNumbers=varargin{1};
+                Nla=numel(wavelengthNumbers);
+                Dev.ER = ones(Dev.idimension(1),Dev.idimension(2),sum(Dev.ilayer),Nla);
+                Dev.UR = ones(Dev.idimension(1),Dev.idimension(2),sum(Dev.ilayer),Nla);
                 low = 1;
                 for n = 1:numel(Dev.ilayer)
                     high = sum(Dev.ilayer(1:n));
                     if numel(Dev.material{n}.er) == 1 && numel(Dev.material{n}.ur) == 1
-                        Dev.ER(:,:,low:high) = Dev.material{n}.er ; 
-                        Dev.UR(:,:,low:high) = Dev.material{n}.ur ; 
+                        Dev.ER(:,:,low:high,:) = Dev.material{n}.er ; 
+                        Dev.UR(:,:,low:high,:) = Dev.material{n}.ur ; 
                     else
-                        Dev.ER(:,:,low:high) = Dev.material{n}.er(varargin{1},2) ;
-                        Dev.UR(:,:,low:high) = Dev.material{n}.ur(varargin{1},2) ; 
+                        Dev.ER(:,:,low:high,:) = Dev.material{n}.er(wavelengthNumbers,2) ;
+                        Dev.UR(:,:,low:high,:) = Dev.material{n}.ur(wavelengthNumbers,2) ; 
                     end
                     low = high+1;
                 end
@@ -135,8 +148,10 @@ classdef Device < handle
             for n = 1:numel(Dev.Pattern)
                 layers = [layers,Dev.Pattern{1,n}.nlayer];    
             end
-            for i = layers
-                Dev.ER(:,:,i) = Blur(Dev.ER(:,:,i),BlurCoef);
+            for i = layers      %shouldn't we use `unique` here?
+              for j=1:size(Dev.ER,4)
+                Dev.ER(:,:,i,j) = Blur(Dev.ER(:,:,i,j),BlurCoef);   %what about Ur?
+              end
             end
 
         end
@@ -146,17 +161,19 @@ classdef Device < handle
             % blur and shrink the device
             Blockdimensionx = (Dev.idimension(1) - mod(Dev.idimension(1), ShrinkCoef))/ShrinkCoef;
             Blockdimensiony = (Dev.idimension(2) - mod(Dev.idimension(2), ShrinkCoef))/ShrinkCoef;
-            BlockER = ones(Blockdimensionx,Blockdimensiony,sum(Dev.ilayer));
+            BlockER = ones(Blockdimensionx,Blockdimensiony,sum(Dev.ilayer),size(Dev.ER,4));
 %             BlockUR = ones(Blockdimensionx,Blockdimensiony,sum(Dev.ilayer));
             layers = [];
             for n = 1:numel(Dev.Pattern)
                 layers = [layers,Dev.Pattern{1,n}.nlayer];    
             end
             for i = layers
-                Dev.ER(:,:,i) = Blur(Dev.ER(:,:,i),ShrinkCoef);
+              for j=1:size(Dev.ER,4)
+                Dev.ER(:,:,i,j) = Blur(Dev.ER(:,:,i,j),ShrinkCoef);   %what about Ur?
 %                 Dev.UR(:,:,i) = Blur(Dev.UR(:,:,i),ShrinkCoef);
-                BlockER(:,:,i) = BlockMean(Dev.ER(:,:,i),ShrinkCoef);
+                BlockER(:,:,i,j) = BlockMean(Dev.ER(:,:,i,j),ShrinkCoef);
 %                 BlockUR(:,:,i) = BlockMean(Dev.UR(:,:,i),ShrinkCoef);
+             end
             end            
             Dev.ER = BlockER;
 %             Dev.UR = BlockUR;           
@@ -171,10 +188,12 @@ classdef Device < handle
              % Purpose: caculate the convolution matrix of the device
              NH  = prod(Dev.PQR);                   %total number of spatial harmonics
              Nz=sum(Dev.ilayer);
+             Nla=size(Dev.ER,4);
 %              Dev.URC = ones(NH,NH,Nz);
-             Dev.URC = eye(NH) .* (Dev.UR(1,1,:).*ones(1,1,Nz));
+             Dev.URC = eye(NH) .* (Dev.UR(1,1,:,:).*ones(1,1,Nz,Nla));
              for n = 1 : Nz
-                 URvar = Dev.UR(:,:,n);
+               for iLa=1:Nla
+                 URvar = Dev.UR(:,:,n,iLa);
                  if Dev.optimizeUconst
                      URvarm = mean(mean(URvar,1),2);         %does UR vary over (x,y) or not
                      URvarm = max(max(abs( URvar-URvarm ),[],1),[],2)/URvarm;
@@ -184,18 +203,20 @@ classdef Device < handle
                  if abs(URvarm)<1e-10    %(size(Dev.UR,1)*size(Dev.UR,2)==1 || URvar==0 )
 %                      webrakeherefornow %the eye has already made the URC for this layer
                  else
-                     Dev.URC(:,:,n) = convmat(URvar,Dev.PQR);            % 1 layer convolution matrices for ur
+                     Dev.URC(:,:,n,iLa) = convmat(URvar,Dev.PQR);            % 1 layer convolution matrices for ur
                  end
+               end
              end
 %              Dev.ERC = ones(NH,NH,Nz);
-             Dev.ERC = eye(NH) .* (Dev.ER(1,1,:).*ones(1,1,Nz));
+             Dev.ERC = eye(NH) .* (Dev.ER(1,1,:,:).*ones(1,1,Nz,Nla));
              if Dev.improveConvergenceE
-                 Dev.iERC = eye(NH) .* (Dev.ER(1,1,:).\ones(1,1,Nz));
+                 Dev.iERC = eye(NH) .* (Dev.ER(1,1,:,:).\ones(1,1,Nz,Nla));
              else
                  Dev.iERC=nan;
              end
              for n = 1 : Nz
-                 ERvar = Dev.ER(:,:,n);
+               for iLa=1:Nla
+                 ERvar = Dev.ER(:,:,n,iLa);
                  if Dev.optimizeEconst
                      ERvarm = mean(mean(ERvar,1),2); %does ER vary over (x,y) or not
                      ERvarm = max(max(abs( ERvar-ERvarm ),[],1),[],2)/ERvarm;
@@ -203,23 +224,26 @@ classdef Device < handle
                      ERvarm=1;
                  end
                 if abs(ERvarm)>1e-10
-                 Dev.ERC(:,:,n) = convmat(ERvar,Dev.PQR);            % 1 layer convolution matrices for er 
+                 Dev.ERC(:,:,n,iLa) = convmat(ERvar,Dev.PQR);            % 1 layer convolution matrices for er 
                  if Dev.improveConvergenceE
-                     Dev.iERC(:,:,n) = convmat(1./ERvar,Dev.PQR);
+                     Dev.iERC(:,:,n,iLa) = convmat(1./ERvar,Dev.PQR);
                  end
                 end
+               end
              end
              
          end
         
-         function ShowLayer(Dev,nlayer)
+         function ShowLayer(Dev,nlayer,nLa)
              % Purpose: show certain layer of builded device
              % Input: nlayer--the layer which will be shown
+             if nargin<3, nLa=1; end
+             titlestr=[' image of layer: ', num2str(nlayer) 'at wavelength: ' num2str(nLa)];
              figure 
              subplot(121);
-             v=real(Dev.ER(:,:,nlayer)');
+             v=real(Dev.ER(:,:,nlayer,nLa)');
              imagesc(v);
-             title(['ER image of layer: ', num2str(nlayer)])
+             title(['ER' titlestr])
              xlabel('x (\mum)');
              ylabel('y (\mum)');
              if ~isvector(v), axis equal; end
@@ -227,11 +251,11 @@ classdef Device < handle
 %              set(gca,'XAxisLocation','top');
              colorbar;
              subplot(122);
-             v=real(Dev.UR(:,:,nlayer)');
+             v=real(Dev.UR(:,:,nlayer,nLa)');
              imagesc(v);
              xlabel('x (\mum)');
              ylabel('y (\mum)');
-             title(['UR image of layer: ', num2str(nlayer)])
+             title(['UR' titlestr])
              if ~isvector(v), axis equal; end
              axis tight;
 %              set(gca,'YDir','reverse');
@@ -240,22 +264,24 @@ classdef Device < handle
              colorbar;
          end
          
-         function ShowConvLayer(Dev,nlayer)
+         function ShowConvLayer(Dev,nlayer,nLa)
              % Purpose: show certain layer of builded device
              % Input: nlayer--the layer which will be shown
+             if nargin<3, nLa=1; end
+             titlestr=[' image of layer: ', num2str(nlayer) 'at wavelength: ' num2str(nLa)];
              figure 
              subplot(121);
-             imagesc(real(Dev.ERC(:,:,nlayer)'));
+             imagesc(real(Dev.ERC(:,:,nlayer,nLa)'));
              xlabel('N_x');
              ylabel('N_y');
-             title(['Convolution ER image of layer: ', num2str(nlayer)])
+             title(['Convolution ER' titlestr])
              axis equal tight;
              colorbar;
              subplot(122);
-             imagesc(real(Dev.URC(:,:,nlayer)'));
+             imagesc(real(Dev.URC(:,:,nlayer,nLa)'));
              xlabel('N_x');
              ylabel('N_y');
-             title(['Convolution UR image of layer: ', num2str(nlayer)])
+             title(['Convolution UR' titlestr])
              axis equal tight;
              colorbar;
          end

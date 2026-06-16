@@ -7,6 +7,14 @@ classdef Source < handle
         wavelength          % wavelength of the source, unit is nanometer
         angle               % incident angle, unite is radians
         polarization        % polarization of the incident, no unite
+        n0                  % unit vector of wave normal
+        
+        theta               %three angle pairs for three mount types, see [Smith, Erdogan, Erdogan]
+        phi
+        beta
+        rho
+        alpha
+        xi
     end
     methods
         % Get the input from users
@@ -17,17 +25,51 @@ classdef Source < handle
         %        polarization -- polarization of incident, constructed as
         %        array
                  s.wavelength = wavelength *  RCWA.nanometers;
-                 s.angle      = angle * RCWA.degrees;
+                 s.angle = angle*RCWA.degrees;
                  s.polarization = polarization;
-        end
+                 mountType=1;
+                 if mountType==1
+                     n0=[ sind(angle(1)) * [cosd(angle(2));sind(angle(2))]; cosd(angle(1)) ];%Roll (theta,phi)
+                     s.theta=angle(1);
+                     s.phi=angle(2);
+                 elseif mountType==2
+                     n0=[ sind(angle(1)); cosd(angle(1)) * [sind(angle(2));cosd(angle(2))] ];%Pitch (beta,rho)
+                     s.beta=angle(1);
+                     s.rho=angle(2);
+                 elseif mountType==3
+                     n0=[ sind(angle(1))*cosd(angle(2)); sind(angle(2)); cosd(angle(1))*cosd(angle(2))];%Lab (alpha,xi)
+                     s.alpha=angle(1);
+                     s.xi=angle(2);
+                 else
+                     hdjytjytjrtjrytjrtu
+                 end
+                 s.n0=n0;
+                 if mountType~=1
+                     s.theta=acosd(n0(3));
+                     h=hypot(n0(1),n0(2));%to generate nans for (0,0) pair
+                     s.phi=atan2d(n0(2)/h,n0(1)/h);
+                 end
+                 if mountType~=2
+                     s.beta=asind(n0(1));
+                     h=hypot(n0(3),n0(2));%to generate nans for (0,0) pair
+                     s.rho=atan2d(n0(2)/h,n0(3)/h);
+                 end
+                 if mountType~=3
+                     h=hypot(n0(3),n0(1));%to generate nans for (0,0) pair
+                     s.alpha=atan2d(n0(1)/h,n0(3)/h);
+                     s.xi=asind(n0(2));
+                 end
+%                  if isnan(s.alpha), s.alpha=0; end;
+       end
         
        
         function disp(s)
         % Usage: disp(s)
         % Purpose: Disply the data 
         
-            fprintf('Wavelength is from %s micrometer to %s micrometer\n',num2str(s.wavelength(1)),num2str(s.wavelength(end)));
-            fprintf('Incident angle theta is %s radians and phi is %s radians\n', num2str(s.angle(1)), num2str(s.angle(end)));
+%             fprintf('Wavelength is from %s micrometer to %s micrometer\n',num2str(s.wavelength(1)),num2str(s.wavelength(end)));
+            fprintf('Wavelength is from %s micrometer to %s micrometer\n',num2str(s.smin),num2str(s.smax));
+            fprintf('Incident angle theta is %s radians and phi is %s radians\n', num2str(s.angle(1)), num2str(s.angle(2)));
             fprintf('TE and TM is %s and %s\n', num2str(s.polarization(1)),num2str(s.polarization(2)));
         end
         
@@ -59,15 +101,15 @@ classdef Source < handle
         % Purpose: get the source vector in the reflective region
         % INPUT: n is the reflective of the place that the incident is in
         % OUTPUT: Source vector k
-            skinc = n*[sin(s.angle(1))*cos(s.angle(2));sin(s.angle(1))*sin(s.angle(2));cos(s.angle(1))];
+            skinc = n*s.n0;
                 
         end  
         
-        function sP = sP(s,wavelengthnum,n)
+        function [sP,sQ] = sP(s,wavelengthnum,n)
             % caculate vector along polarizations
             % Input: the number of the wavelength
             k0=s.sk(wavelengthnum);
-            k=k0*s.skinc(n);
+            k=k0*s.skinc(n);            %s.n0 should be enough here
             if s.angle(1) == 0
                 a_te = [0;1;0];
             else
@@ -80,7 +122,8 @@ classdef Source < handle
             % Composite polarization vector 
             sP = s.polarization(1)*a_te + s.polarization(2)*a_tm;
             sP = sP/norm(sP);
-            
+            sQ = conj(s.polarization(2))*a_te - conj(s.polarization(1))*a_tm;   %transverse polarization
+            sQ = sQ/norm(sQ);
         end
             
      end
