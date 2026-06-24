@@ -26,6 +26,9 @@ classdef Device < handle
         optimizeUconst=0
         optimizeEconst=0
     end
+    properties (Constant,Hidden)
+        sur_nor = [0; 0; -1];                     % define surface normal
+    end
 
     methods
         function Dev = Device(xydimension,idimension,PQR)
@@ -65,7 +68,7 @@ classdef Device < handle
             Dev.length=d;
             Dev.ilayer=ones(size(ER,3),1); % 全部都�?�一层
             % Dev.material{end+1}后续只要不去build layer应该不会用到
-    
+            InvalidateConvMtx(Dev);
         end
 
 
@@ -126,6 +129,7 @@ classdef Device < handle
                     low = high+1;    
                 end
             end
+            InvalidateConvMtx(Dev);
         end
         
         function BuildPattern(Dev,varargin)
@@ -139,7 +143,8 @@ classdef Device < handle
                 else
                     BuildPattern(Dev.Pattern{n},Dev,varargin{1});
                 end
-            end     
+            end  
+            InvalidateConvMtx(Dev);
         end
         
         function BlurDevice(Dev,BlurCoef)
@@ -207,6 +212,8 @@ classdef Device < handle
                  end
                end
              end
+             % Dev.ERC=[];
+             % CompactMemDevice(Dev);
 %              Dev.ERC = ones(NH,NH,Nz);
              Dev.ERC = eye(NH) .* (Dev.ER(1,1,:,:).*ones(1,1,Nz,Nla));
              if Dev.improveConvergenceE
@@ -231,7 +238,29 @@ classdef Device < handle
                 end
                end
              end
+             % CompactMemDevice(Dev);
              
+         end
+        
+         function CompactMemDevice(Dev)
+             if isfield(Dev,'ERC')&&numel(Dev.ERC)
+                 Dev.ER=[];
+             end
+             if isfield(Dev,'URC')&&numel(Dev.URC)
+                 Dev.UR=[];
+             end
+         end
+        
+         function InvalidateConvMtx(Dev)
+             if isfield(Dev,'ER')&&numel(Dev.ER)
+                 Dev.ERC=[];
+                 if Dev.improveConvergenceE
+                     Dev.iERC=[];
+                 end
+             end
+             if isfield(Dev,'UR')&&numel(Dev.UR)
+                 Dev.URC=[];
+             end
          end
         
          function ShowLayer(Dev,nlayer,nLa)

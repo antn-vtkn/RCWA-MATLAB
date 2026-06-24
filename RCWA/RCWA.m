@@ -81,13 +81,14 @@ classdef RCWA < handle
            ObjRCWA.RecordDifOrder = 1;
         end
         
-        function RCWARun(ObjRCWA,source,device,field)
+        function RCWARun(ObjRCWA,source,device,field,Nparallel)
             if ObjRCWA.ShowProcess == 1
                 h = waitbar(0,'1','Name','RCWA Caculating...',...
                     'CreateCancelBtn',...
                     'setappdata(gcbf,''canceling'',1)');
                 setappdata(h,'canceling',0)
             end
+            if nargin<5, Nparallel=Inf; end
             
             ObjRCWA.source = source;
             ObjRCWA.device = device;
@@ -142,7 +143,11 @@ classdef RCWA < handle
 %             end
 % %                 ObjRCWA.R = nan(1,NLAM);
 % %                 ObjRCWA.T = nan(1,NLAM);
-            parfor nlam = 1 : NLAM
+            if isnan(Nparallel)
+                Nparallel=numel(gcp('nocreate'));
+                if Nparallel, Nparallel=Inf; end
+            end
+            parfor (nlam = 1 : NLAM, abs(Nparallel))
                 % Make patterns in the layer input:[center],radius,[in which ilayer],[er, ur]
                 [Ref,Trn] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam);
                 if ObjRCWA.RecordDifOrder == 1
@@ -188,66 +193,85 @@ classdef RCWA < handle
         
         
         function PlotRT(ObjRCWA)
-            % Create figure
-            figure1 = figure('Name','Reflection and Transmission','NumberTitle','off');
-            
-            % Create axes
-            axes1 = axes('Parent',figure1,'FontWeight','demi','FontSize',14);
-            box(axes1,'on');
-            hold(axes1,'all');
-            
-            plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,ObjRCWA.R,'-r','LineWidth',2); hold on;
-            plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,ObjRCWA.T,'-b','LineWidth',2);
-            plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,100-(ObjRCWA.R+ObjRCWA.T),'-k','LineWidth',2); hold off;
-            legend('Reflectance', 'Transmittance', 'Conservation')
-            axis([min(ObjRCWA.source.wavelength)/ObjRCWA.nanometers max(ObjRCWA.source.wavelength)/ObjRCWA.nanometers 0 105]);
-            xlabel('Wavelength (nm)','FontWeight','demi','FontSize',12);
-            ylabel('%   ','Rotation',0,'FontWeight','demi','FontSize',12);
-            title('SPECTRAL RESPONSE','FontWeight','bold','FontSize',14);
+            plotRTA(ObjRCWA,[1,1,0]);
         end
         
         function PlotR(ObjRCWA)
-            figure1 = figure('Name','Reflection','NumberTitle','off');
-            % Create axes
-            axes1 = axes('Parent',figure1,'FontWeight','demi','FontSize',14);
-            box(axes1,'on');
-            hold(axes1,'all');
-            
-            plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,ObjRCWA.R,'-r','LineWidth',2);
-            legend('Reflectance')
-            axis([min(ObjRCWA.source.wavelength)/ObjRCWA.nanometers max(ObjRCWA.source.wavelength)/ObjRCWA.nanometers 0 105]);
-            xlabel('Wavelength (nm)','FontWeight','demi','FontSize',12);
-            ylabel('%   ','Rotation',0,'FontWeight','demi','FontSize',12);
-            title('Reflection','FontWeight','bold','FontSize',14);
+            plotRTA(ObjRCWA,[1,0,0]);
         end
            
         function PlotT(ObjRCWA)
-            figure1 = figure('Name','Transmission','NumberTitle','off');
+            plotRTA(ObjRCWA,[0,1,0]);
+        end
+        
+        function PlotA(ObjRCWA)
+            plotRTA(ObjRCWA,[0,0,1]);
+        end
+        
+        function plotRTA(ObjRCWA,doRTA)
+            doRTA=~~doRTA;
+            if numel(doRTA)<3, doRTA(3)=0; end
+            flabels0={'Reflectance', 'Transmittance', 'Absorbance'};
+            if ~doRTA(3)
+                flabels0{3}='Conservation';
+            end
+            flabels=flabels0(doRTA);
+            if doRTA(1)
+                if doRTA(2)
+                    fname='Reflection and Transmission';
+                    if ~doRTA(3)
+                        flabels(3)=flabels0(3);
+                    end
+                    ftitle='SPECTRAL RESPONSE';
+                else
+                    fname='Reflection';
+                    ftitle=fname;
+                end
+            else
+                if doRTA(2)
+                    fname='Transmission';
+                    ftitle=fname;
+                else
+                    if doRTA(3)
+                        fname='Absorption';
+                        ftitle=fname;
+                    else
+                        fname='Nothing plot';
+                        flabels={'Nothing'};
+                        ftitle=fname;
+                    end
+                end
+            end
+            % Create figure
+            figure1 = figure('Name',fname,'NumberTitle','off');
+            
             % Create axes
             axes1 = axes('Parent',figure1,'FontWeight','demi','FontSize',14);
             box(axes1,'on');
             hold(axes1,'all');
             
-            plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,ObjRCWA.T,'-b','LineWidth',2);
-            legend('Transmittance')
-            axis([min(ObjRCWA.source.wavelength)/ObjRCWA.nanometers max(ObjRCWA.source.wavelength)/ObjRCWA.nanometers 0 105]);
+            Nplot=size(ObjRCWA.R,2);
+            for ii=1:Nplot
+                if ii==1
+                    lnspc='-';
+                else
+                    lnspc='--';
+                end
+            if doRTA(1), plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,ObjRCWA.R(:,1),[lnspc 'r'],'LineWidth',2); hold on; end
+            if doRTA(2), plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,ObjRCWA.T(:,1),[lnspc 'b'],'LineWidth',2); end
+            if doRTA(3)||(doRTA(1)&&doRTA(2)), plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,100-(ObjRCWA.R(:,1)+ObjRCWA.T(:,1)),[lnspc 'k'],'LineWidth',2); end
+            end
+            hold off;
+            
+            legend(repmat(flabels,1,Nplot));
+            YL=[get(axes1,'Ylim') 0 105];
+            YL=[min(YL) max(YL)];
+            XL=ObjRCWA.source.wavelength/ObjRCWA.nanometers;
+            XL=[min(XL) max(XL)];
+            axis([XL YL]);
             xlabel('Wavelength (nm)','FontWeight','demi','FontSize',12);
             ylabel('%   ','Rotation',0,'FontWeight','demi','FontSize',12);
-            title('Transmission','FontWeight','bold','FontSize',14);
-        end
-        
-        function PlotA(ObjRCWA)
-            figure1 = figure('Name','Absorption','NumberTitle','off');
-            % Create axes
-            axes1 = axes('Parent',figure1,'FontWeight','demi','FontSize',14);
-            box(axes1,'on');
-            hold(axes1,'all');
-            plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,100-(ObjRCWA.R+ObjRCWA.T),'-k','LineWidth',2);
-            legend('Absorption')
-            axis([min(ObjRCWA.source.wavelength)/ObjRCWA.nanometers max(ObjRCWA.source.wavelength)/ObjRCWA.nanometers 0 105]);
-            xlabel('Wavelength (nm)','FontWeight','demi','FontSize',12);
-            ylabel('%   ','Rotation',0,'FontWeight','demi','FontSize',12);
-            title('Absorption','FontWeight','bold','FontSize',14);
+            title(ftitle,'FontWeight','bold','FontSize',14);
         end
         
         function SaveData(ObjRCWA,name)

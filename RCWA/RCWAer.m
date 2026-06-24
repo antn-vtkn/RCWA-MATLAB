@@ -34,14 +34,6 @@ Ref.ur1 = ObjRCWA.referur(2);                         %permeability in reflectio
 Ref.er1 = ObjRCWA.referur(1);                         %permittivity in reflection region 
 Trn.ur2 = ObjRCWA.trnerur(2);                         %permeability in transmission region 
 Trn.er2 = ObjRCWA.trnerur(1);                         %permittivity in transmission region
-URC = device.URC;                                     %convolution matrix of ur
-if ndims(URC)>3, URC=URC(:,:,:,wavenumber); end
-ERC = device.ERC;                                     %convolution matrix of er
-if ndims(ERC)>3, ERC=ERC(:,:,:,wavenumber); end
-if device.improveConvergenceE
-    iERC=device.iERC;
-    if ndims(iERC)>3, iERC=iERC(:,:,:,wavenumber); end
-end
 
 PQR = device.PQR;
 
@@ -56,7 +48,7 @@ k0 = source.sk(wavenumber);                     %caculate source vector which wi
 %Compute wave vector expansion
 
 I0 = eye(NH);
-Z0 = zeros(NH);
+% Z0 = zeros(NH);
 Ref.n = sqrt(Ref.er1*Ref.ur1);                      % reflective index in the reflection region
 Trn.n = sqrt(Trn.er2*Trn.ur2);                      % reflective index in the transmission region
 
@@ -98,18 +90,14 @@ Q0 = [Kx*Ky, I0-Kx*Kx; Ky*Ky-I0, -Kx*Ky];                 %eigen-modes for the e
 % [W0,LAM0] = eig(OMEGA0);                              % compute eigen-modes 
 % LAM0 = sqrt(LAM0);
 % V0 = Q0*W0/LAM0;                                        % compute the V concerning magnetic  part 
-W0 = [I0 Z0;Z0 I0];
-LAM0 = [1i*Kz0 Z0; Z0 1i*Kz0];
-V0 = Q0/LAM0;                                   %eigen-modes for the magnetic fields in free space
+W0 = blkdiag(I0,I0);
+% LAM0 = [1i*Kz0 Z0; Z0 1i*Kz0];
+% V0 = Q0/LAM0;                                   %eigen-modes for the magnetic fields in free space
+V0 = Q0/blkdiag(1i*Kz0,1i*Kz0);
+clear Q0 LAM0
 
 %defaut W and V in the reflective and transmission region will be in the
 %free space
-W_ref = W0;
-W_trn = W0;
-Kz_ref = -Kz0;
-Kz_trn = Kz0;
-V_ref = V0;
-V_trn = V0;
 
 % Initialize Global Scattering Matix
 I = eye(NH*2);
@@ -118,23 +106,52 @@ S_G_11 = Z;
 S_G_12 = I;
 S_G_22 = Z;
 S_G_21 = I;
-
+clear Z
 
 % Main loop for each layer 
 for n = 1: sum(device.ilayer) 
+    if ndims(device.URC)>3
+        URC=device.URC(:,:,n,wavenumber);
+    else
+        URC = device.URC(:,:,n);                                     %convolution matrix of ur
+    end
+    if ndims(device.ERC)>3
+        ERC=device.ERC(:,:,n,wavenumber);
+    else
+        ERC = device.ERC(:,:,n);                                     %convolution matrix of er
+    end
+    if device.improveConvergenceE
+        if ndims(device.iERC)>3
+            iERC=device.iERC(:,:,n,wavenumber);
+        else
+            iERC=device.iERC(:,:,n);
+        end
+    end
     % Caculate Parameters for each Layer 
-    KxiERC=Kx/ERC(:,:,n);
-    KyiERC=Ky/ERC(:,:,n);
-    P = [KxiERC*Ky, URC(:,:,n)-KxiERC*Kx ;...
-            KyiERC*Ky-URC(:,:,n), -KyiERC*Kx];     % matrix concerning magnetic  part 
-    KxiURC=Kx/URC(:,:,n);
-    KyiURC=Ky/URC(:,:,n);
-   if device.improveConvergenceE
-    Q = [KxiURC*Ky, ERC(:,:,n)-KxiURC*Kx ;...
-            KyiURC*Ky-inv(iERC(:,:,n)), -KyiURC*Kx];     % matrix concerning electrical part 
+    KxiERC=Kx/ERC;
+    KyiERC=Ky/ERC;
+    P = [KxiERC*Ky, URC-KxiERC*Kx ;...
+            KyiERC*Ky-URC, -KyiERC*Kx];     % matrix concerning magnetic  part 
+    KxiURC=Kx/URC;
+    KyiURC=Ky/URC;
+   if device.improveConvergenceE%grooves along y / across x are implied here
+    if all(device.K2==0)
+        if device.K1(2)==0
+            ERC12=ERC;
+            ERC21=inv(iERC);
+        elseif device.K1(1)==0
+            ERC21=ERC;%should be correct; hopefully
+            ERC12=inv(iERC);
+        end
+    else
+        ERC12=inv(iERC);%not sure whether it would work properly
+        ERC21=inv(iERC);
+    end
+    Q = [KxiURC*Ky, ERC12-KxiURC*Kx ;...
+            KyiURC*Ky-ERC21, -KyiURC*Kx];     % matrix concerning electrical part 
    else
-    Q = [KxiURC*Ky, ERC(:,:,n)-KxiURC*Kx ;...
-            KyiURC*Ky-ERC(:,:,n), -KyiURC*Kx];     % matrix concerning electrical part 
+    Q = [KxiURC*Ky, ERC-KxiURC*Kx ;...
+            KyiURC*Ky-ERC, -KyiURC*Kx];     % matrix concerning electrical part 
    end
 %     OMEGA2 = P*Q;
 %     [W,LAM] = eig(OMEGA2);                              % compute eigen-modes 
@@ -179,70 +196,91 @@ for n = 1: sum(device.ilayer)
     S_G_21 = F*S_G_21;
     S_G_22 = S22 + F*S_G_22*S12;
 end
+clear BiA XBiAX iWW0 iVV0 izn zn LAM W V P ERC21 ERC12 KxiERC KyiERC KxiURC KyiURC 
 
 %% Connect the device matrix to external regions (This part is not necessary if ref and trn parts is in free space)
-if sum(ObjRCWA.referur ~= [1,1]) + sum(ObjRCWA.trnerur ~= [1,1]) ~= 0
+if any(ObjRCWA.referur ~= [1,1])
     % Caculate reflection-side scattering matrix
     % by defaut the external regions will be free space
-    Q_ref = 1/Ref.ur1*[Kx*Ky, Ref.ur1*Ref.er1*I0-Kx*Kx;...
+    Q = 1/Ref.ur1*[Kx*Ky, Ref.ur1*Ref.er1*I0-Kx*Kx;...
         Ky*Ky-Ref.ur1*Ref.er1*I0, -Kx*Ky];     % matrix concerning electrical part
     Kz_ref = -conj(sqrt(Ref.ur1*Ref.er1*I0 - Kx*Kx - Ky*Ky));
-    W_ref = [I0 Z0;Z0 I0];
-    LAM_ref = [-1i*Kz_ref Z0; Z0 -1i*Kz_ref];
-    V_ref = Q_ref/LAM_ref;                                   %eigen-modes for the magnetic fields in free space
-    % Calculate Scattering Matrix for reflection region
-    iW0W=W0\W_ref;
-    iV0V=V0\V_ref;
-    A_ref = iW0W + iV0V;
-    B_ref = iW0W - iV0V;
-    S22_ref = B_ref/A_ref;
-    S11_ref = -A_ref\B_ref;                                         % caculate reflection matrix in the reflection region
-    S12_ref = 2*eye(2*NH)/A_ref;                                              % caculate transmission matrix in the reflection region
-    S21_ref = 1/2*(A_ref-S22_ref*B_ref);
+% %     W_ref = W0;
+%     LAM = [-1i*Kz_ref Z0; Z0 -1i*Kz_ref];
+%     V_ref = Q/LAM;                                   %eigen-modes for the magnetic fields in free space
+    V_ref = Q/blkdiag(-1i*Kz_ref,-1i*Kz_ref);
     
+    % Calculate Scattering Matrix for reflection region
+%     iW0W=W0\W0;
+    iW0W=eye(2*NH);
+    iV0V=V0\V_ref;
+    A = iW0W + iV0V;
+    B = iW0W - iV0V;
+    S22 = B/A;
+    S11 = -A\B;                                         % caculate reflection matrix in the reflection region
+%     S12_ref = 2*eye(2*NH)/A_ref;                                              % caculate transmission matrix in the reflection region
+    S12 = 2*inv(A);
+    S21 = 1/2*(A-S22*B);
+    
+    % Connect the reflection region scattering matrix
+    % with the device scattering matrix to build the global matrix
+    D = S12/(I-S_G_11*S22);
+    F = S_G_21/(I-S22*S_G_11);
+    S_G_22 = S_G_22 + F*S22*S_G_12;
+    S_G_21 = F*S21;
+    S_G_12 = D*S_G_12;
+    S_G_11 = S11 + D*S_G_11*S21;
+else    
+    Kz_ref = -Kz0;
+    V_ref = V0;
+end
+if any(ObjRCWA.trnerur ~= [1,1])
     % Caculate transmission-side scattering matrix
-    Q_trn = 1/Trn.ur2*[Kx*Ky, Trn.er2*Trn.ur2*I0-Kx*Kx;...
+    % by defaut the external regions will be free space
+    Q = 1/Trn.ur2*[Kx*Ky, Trn.er2*Trn.ur2*I0-Kx*Kx;...
         Ky*Ky-Trn.er2*Trn.ur2*I0, -Kx*Ky];     % matrix concerning electrical part
     Kz_trn = conj(sqrt(Trn.ur2*Trn.er2*I0 - Kx*Kx-Ky*Ky));
-    W_trn = [I0 Z0;Z0 I0];
-    LAM_trn = [1i*Kz_trn Z0; Z0 1i*Kz_trn];
-    V_trn = Q_trn/LAM_trn;
+% %     W_trn = W0;
+%     LAM = [1i*Kz_trn Z0; Z0 1i*Kz_trn];
+%     V_trn = Q/LAM;
+    V_trn = Q/blkdiag(1i*Kz_trn,1i*Kz_trn);
     
     % Calculate Scattering Matrix for transmission region
-    iW0W=W0\W_trn;
+%     iW0W=W0\W0;
+    iW0W=eye(2*NH);
     iV0V=V0\V_trn;
-    A_trn = iW0W + iV0V;
-    B_trn = iW0W - iV0V;
-    S11_trn = B_trn/A_trn;                                         % caculate reflection matrix in the reflection region
-    S12_trn = 1/2*(A_trn-S11_trn*B_trn);                                              % caculate transmission matrix in the reflection region
-    S21_trn = 2*inv(A_trn);
+    A = iW0W + iV0V;
+    B = iW0W - iV0V;
+    S11 = B/A;                                         % caculate reflection matrix in the reflection region
+    S12 = 1/2*(A-S11*B);                                              % caculate transmission matrix in the reflection region
+    S21 = 2*inv(A);
 %     S21_trn = 2*eye(2*NH)/(A_trn);
-    S22_trn = -A_trn\B_trn;
+    S22 = -A\B;
     
-    % Connect the reflection region scattering matrix and transmission region
-    % scattering matrix with the device scattering matrix to build the globle
-    % matrix
-    % For the reflection region
-    D_ref = S12_ref/(I-S_G_11*S22_ref);
-    F_ref = S_G_21/(I-S22_ref*S_G_11);
-    S_G_22 = S_G_22 + F_ref*S22_ref*S_G_12;
-    S_G_21 = F_ref*S21_ref;
-    S_G_12 = D_ref*S_G_12;
-    S_G_11 = S11_ref + D_ref*S_G_11*S21_ref;
-    
-    % For the tranmission region
-    D_trn = S_G_12/(I-S11_trn*S_G_22);
-    F_trn = S21_trn/(I-S_G_22*S11_trn);
-    S_G_11 = S_G_11 + D_trn*S11_trn*S_G_21;
-    S_G_12 = D_trn*S12_trn;
-    S_G_21 = F_trn*S_G_21;
-    S_G_22 = S22_trn + F_trn*S_G_22*S12_trn;
+    % Connect the transmission region scattering matrix
+    % with the device scattering matrix to build the global matrix
+    D = S_G_12/(I-S11*S_G_22);
+    F = S21/(I-S_G_22*S11);
+    S_G_11 = S_G_11 + D*S11*S_G_21;
+    S_G_12 = D*S12;
+    S_G_21 = F*S_G_21;
+    S_G_22 = S22 + F*S_G_22*S12;
+else
+    Kz_trn = Kz0;
+    V_trn = V0;
 end
+clear LAM A B P Q D F S11 S12 S21 S22 iW0W iV0V I V0 Kz0
+W_ref = W0;
+W_trn = W0;
+clear W0
 
 %% Compute Reflected and Transmitted Fields
 % Construct Delta Vector
-delta = zeros(NH,1);
-delta(ceil(NH/2),1) = 1;
+delta0 = zeros(NH,1);
+delta0(ceil(NH/2),1) = 1;
+% m=-1;
+% deltam = zeros(NH,1);
+% deltam(ceil(NH/2)+m,1) = 1;
 
 % Compute source feild
 [sP,sQ] = source.sP(wavenumber,Ref.n);
@@ -264,7 +302,7 @@ delta(ceil(NH/2),1) = 1;
 % Source.P = Source.P/norm(Source.P);
 
 % Compute source feild
-E_src = [delta.*[sP(1),sQ(1)];delta.*[sP(2),sQ(2)]];
+E_src = [delta0.*[sP(1),sQ(1)];delta0.*[sP(2),sQ(2)]];
 % E_src = [sP(1)*delta;sP(2)*delta];
 
 % Compute source modal coefficients
@@ -285,7 +323,7 @@ X_trn = E_trn(1:NH,:);
 Y_trn = E_trn(NH+1:2*NH,:);
 
 % Caculate longitudinal field components
-Z_ref = -Kz_ref\(Kx*X_ref + Ky*Y_ref);      %div(E)==0
+Z_ref = -Kz_ref\(Kx*X_ref + Ky*Y_ref);      %div(E)==0, isotropic media implied
 Z_trn = -Kz_trn\(Kx*X_trn + Ky*Y_trn);
 
 % Caculate Reflected and Tranmitted power
@@ -307,8 +345,8 @@ if CondRecordField == 1
     ObjRCWA.field.Kx = Kx;
     ObjRCWA.field.Ky = Ky;
     ObjRCWA.field.k0 = k0;
-    ObjRCWA.field.URC = URC;
-    ObjRCWA.field.ERC = ERC;
+    ObjRCWA.field.URC = device.URC;
+    ObjRCWA.field.ERC = device.ERC;
     ObjRCWA.field.W_V_ref = sparse([W_ref,W_ref;-V_ref,V_ref]);
     ObjRCWA.field.W_V_trn = sparse([W_trn,W_trn;-V_trn,V_trn]);
     ObjRCWA.field.C_input = [C_src;C_ref];    % input for the first layer

@@ -17,13 +17,14 @@ d1=WL0/4/n1/1000;
 d2=WL0/4/n2/1000;
 
 period=1;
-epssup=1;epssdn=1;
+epssup=1;epssdn=1.33^0;
+musup=1.5^0;mudn=1;
 num_xy=3-2;
 
 num_har=1;
 %%
 ShowProcess=1;
-Simul = RCWA([epssup,1],[epssdn,1],ShowProcess);
+Simul = RCWA([epssup,musup],[epssdn,mudn],ShowProcess);
 S = Source(WLMat,[0,0],[1,0]);
 Dev = Device([period,period],[num_xy,1],[num_har,1]);
 for l=1:5
@@ -37,7 +38,7 @@ PlotRT(Simul)
 
 
 %% 在此尝试人为定义Grating
-Simul_TZH = RCWA([epssup,1],[epssdn,1],ShowProcess);
+Simul_TZH = RCWA([epssup,musup],[epssdn,mudn],ShowProcess);
 DevTZH=Device([period,period],[num_xy,1],[num_har,1]);
 ER=zeros(num_xy,1,10);
 UR=ones(num_xy,1,10);
