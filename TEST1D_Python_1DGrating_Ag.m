@@ -41,17 +41,18 @@ RCWARun(Simul,S,Dev)
 %%
 threshold=1e-3;  %out of 1; not of 100
 xplot=Simul.source.wavelength/Simul.nanometers;
+% yplot1=any(Simul.Ref_order~=0,3);
+yplot1=any(any(Simul.Ref_order>threshold,3),4);
+% yplot2=any(Simul.Trn_order~=0,3);
+yplot2=any(any(Simul.Trn_order>threshold,3),4);
+for ii=1:size(Simul.Ref_order,4)
 figure;
-% yplot=any(Simul.Ref_order~=0,3);
-yplot=any(Simul.Ref_order>threshold,3);
-yplot=squeeze(Simul.Ref_order(yplot,:,:))';
+yplot=squeeze(Simul.Ref_order(yplot1,:,:,ii))';
 plot(xplot,yplot);
 legend;
 hold on; 
 % figure;
-% yplot=any(Simul.Trn_order~=0,3);
-yplot=any(Simul.Trn_order>threshold,3);
-yplot=squeeze(Simul.Trn_order(yplot,:,:))';
-if numel(yplot), myplot(xplot,yplot); end
+yplot=squeeze(Simul.Trn_order(yplot2,:,:,ii))';
+if numel(yplot), myplot(xplot,yplot,'--'); end
 legend;
-
+end

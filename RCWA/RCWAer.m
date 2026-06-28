@@ -84,6 +84,8 @@ KzT = conj(sqrt((Trn.er2*Trn.ur2)*I0 - Kx.^2 - Ky.^2));
 
 %Caculate the P and Q in free space
 Kz0 = conj(sqrt(I0 - Kx*Kx - Ky*Ky));
+kzMin=[min( abs([diag(Kz0),diag(KzR),diag(KzT)]) ,[],1),nan]';
+
 Q0 = [Kx*Ky, I0-Kx*Kx; Ky*Ky-I0, -Kx*Ky];                 %eigen-modes for the electric fields in free space
 % P0 = Q0;
 % OMEGA0 = P0*Q0;
@@ -336,7 +338,7 @@ if nargout>=4
     varargout{2}=E_trn;
 end
 if nargout>=5
-    varargout{3}=NaN;%kzMin;
+    varargout{3}=kzMin;
 end
 %% Record parameters for caculating field in the device
 

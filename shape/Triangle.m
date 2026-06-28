@@ -52,26 +52,20 @@ classdef Triangle < PatternShape
             ny = round(h/dy); 
             ny1 = round((Ny - ny)/2)-nym; 
             ny2 = ny1 + ny - 1;
-            if nargin == 2
-                for ny = ny1 : ny2 
-                    f = (ny - ny1)/(ny2 - ny1); 
-                    nx = round(f*SideLen/Lx*Nx); 
-                    nx1 = 1 + floor((Nx - nx)/2)-nxm; 
-                    nx2 = nx1 + nx; 
+            for ny = ny1 : ny2
+                f = (ny - ny1)/(ny2 - ny1);
+                nx = round(f*SideLen/Lx*Nx);
+                nx1 = 1 + floor((Nx - nx)/2)-nxm;
+                nx2 = nx1 + nx;
+                if nargin == 2
                     Dev.ER(nx1:nx2,ny,Tri.nlayer,:) = Tri.er;
                     Dev.UR(nx1:nx2,ny,Tri.nlayer,:) = Tri.ur;
+                elseif nargin == 3
+                    Dev.ER(nx1:nx2,ny,Tri.nlayer,:) = ones(nx+1,1,numel(Rect.nlayer)).*shiftdim(Tri.er(varargin{1},2),-3);
+                    Dev.UR(nx1:nx2,ny,Tri.nlayer,:) = ones(nx+1,1,numel(Rect.nlayer)).*shiftdim(Tri.ur(varargin{1},2),-3);
+                else
+                    error('Check input number')
                 end
-            elseif nargin == 3
-                for ny = ny1 : ny2 
-                    f = (ny - ny1)/(ny2 - ny1); 
-                    nx = round(f*SideLen/Lx*Nx); 
-                    nx1 = 1 + floor((Nx - nx)/2)-nxm; 
-                    nx2 = nx1 + nx; 
-                    Dev.ER(nx1:nx2,ny,Tri.nlayer,:) = Tri.er(varargin{1},2);
-                    Dev.UR(nx1:nx2,ny,Tri.nlayer,:) = Tri.ur(varargin{1},2);
-                end
-            else
-                error('Check input number')
             end
                 
         end

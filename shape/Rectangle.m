@@ -64,8 +64,8 @@ classdef Rectangle < PatternShape
                 Dev.ER(nx1:nx2,ny1:ny2,Rect.nlayer,:) =  Rect.er;
                 Dev.UR(nx1:nx2,ny1:ny2,Rect.nlayer,:) =  Rect.ur;
             elseif nargin == 3
-                Dev.ER(nx1:nx2,ny1:ny2,Rect.nlayer,:) = Rect.er(varargin{1},2);
-                Dev.UR(nx1:nx2,ny1:ny2,Rect.nlayer,:) = Rect.ur(varargin{1},2);
+                Dev.ER(nx1:nx2,ny1:ny2,Rect.nlayer,:) = ones(2*nx-1,2*ny-1,numel(Rect.nlayer)).*shiftdim(Rect.er(varargin{1},2),-3);
+                Dev.UR(nx1:nx2,ny1:ny2,Rect.nlayer,:) = ones(2*nx-1,2*ny-1,numel(Rect.nlayer)).*shiftdim(Rect.ur(varargin{1},2),-3);
             else
                 error('Check input number')
             end
