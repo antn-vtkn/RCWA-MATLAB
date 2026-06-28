@@ -26,7 +26,7 @@ function [R,T,varargout] = RCWAer(ObjRCWA,source,device,wavenumber)
 error(nargchk(4,4,nargin));
 
 % VERIFY NUMBER OF OUTPUT ARGUMENTS
-error(nargchk(2,4,nargout));
+error(nargchk(2,5,nargout));
 
 %% EXTRACT PARAMETERS
 % Reflective and reflective region parameters
@@ -334,6 +334,9 @@ if nargout>=3
 end
 if nargout>=4
     varargout{2}=E_trn;
+end
+if nargout>=5
+    varargout{3}=NaN;%kzMin;
 end
 %% Record parameters for caculating field in the device
 

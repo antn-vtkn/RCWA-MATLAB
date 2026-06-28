@@ -25,6 +25,8 @@ classdef Device < handle
         improveConvergenceE=0
         optimizeUconst=0
         optimizeEconst=0
+        optimizeUconstZ=0
+        optimizeEconstZ=0
     end
     properties (Constant,Hidden)
         sur_nor = [0; 0; -1];                     % define surface normal
@@ -35,9 +37,9 @@ classdef Device < handle
         % Purpose: Define the reflective and tranmission region of the device and period
         % Input: permeability and permittivity in reflection and transmission region, and period
         % The xydimension and idimension should be proportional
-            if numel(xydimension) == 2 && numel(idimension) == 2
-                Dev.xydimension = xydimension;
-                Dev.idimension = idimension;
+            if numel(xydimension) == 2 && numel(idimension) == 2 &&all(abs(idimension(:)./PQR(:))>=(2-(PQR(:)==1)))
+                Dev.xydimension = abs(xydimension(:)');
+                Dev.idimension = abs(idimension(:)');
             else
                 error('Check the device dimension')
             end
@@ -62,6 +64,9 @@ classdef Device < handle
         
         % Added by TZH
         % To handle the multi-layer material by hands
+        function AddMaterial_Mannual(Dev,ER,UR,d)       %this placeholder is for historical reasons
+          AddMaterial_Manual(Dev,ER,UR,d);
+        end
         function AddMaterial_Manual(Dev,ER,UR,d)
             Dev.ER=ER;
             Dev.UR=UR;
@@ -104,8 +109,10 @@ classdef Device < handle
             if nargin == 2
                 wavelengthNumbers=varargin{1};
                 Nla=numel(wavelengthNumbers);
-                Dev.ER = ones(Dev.idimension(1),Dev.idimension(2),sum(Dev.ilayer),Nla);
-                Dev.UR = ones(Dev.idimension(1),Dev.idimension(2),sum(Dev.ilayer),Nla);
+                mtxsize=[Dev.idimension(1),Dev.idimension(2),sum(Dev.ilayer),Nla];
+                Dev.ER = ones(mtxsize);
+                Dev.UR = ones(mtxsize);
+                        mtxsize(4)=1;
                 low = 1;
                 for n = 1:numel(Dev.ilayer)
                     high = sum(Dev.ilayer(1:n));
@@ -113,8 +120,9 @@ classdef Device < handle
                         Dev.ER(:,:,low:high,:) = Dev.material{n}.er ; 
                         Dev.UR(:,:,low:high,:) = Dev.material{n}.ur ; 
                     else
-                        Dev.ER(:,:,low:high,:) = Dev.material{n}.er(wavelengthNumbers,2) ;
-                        Dev.UR(:,:,low:high,:) = Dev.material{n}.ur(wavelengthNumbers,2) ; 
+                        mtxsize(3)=Dev.ilayer(n);
+                        Dev.ER(:,:,low:high,wavelengthNumbers) = ones(mtxsize).*shiftdim( Dev.material{n}.er(wavelengthNumbers,2) ,-3);
+                        Dev.UR(:,:,low:high,wavelengthNumbers) = ones(mtxsize).*shiftdim( Dev.material{n}.ur(wavelengthNumbers,2) ,-3); 
                     end
                     low = high+1;
                 end
@@ -194,22 +202,39 @@ classdef Device < handle
              NH  = prod(Dev.PQR);                   %total number of spatial harmonics
              Nz=sum(Dev.ilayer);
              Nla=size(Dev.ER,4);
+             varTol=1e-10;
+%              persistent counter
+%              if isempty(counter), counter=0; end
 %              Dev.URC = ones(NH,NH,Nz);
              Dev.URC = eye(NH) .* (Dev.UR(1,1,:,:).*ones(1,1,Nz,Nla));
              for n = 1 : Nz
+               URvar = Dev.UR(:,:,n,:);
                for iLa=1:Nla
-                 URvar = Dev.UR(:,:,n,iLa);
+                 URvar2 = URvar(:,:,1,iLa);
                  if Dev.optimizeUconst
-                     URvarm = mean(mean(URvar,1),2);         %does UR vary over (x,y) or not
-                     URvarm = max(max(abs( URvar-URvarm ),[],1),[],2)/URvarm;
-                 else
-                     URvarm=1;
+                     URvarm = mean(mean(URvar2,1),2);         %does UR vary over (x,y) or not
+                     URvarm = max(max(abs( URvar2-URvarm ),[],1),[],2)/URvarm;
+                     if abs(URvarm)<varTol    %(size(Dev.UR,1)*size(Dev.UR,2)==1 || URvar==0 )
+                         continue       %the eye has already made the URC for this layer
+                     end
                  end
-                 if abs(URvarm)<1e-10    %(size(Dev.UR,1)*size(Dev.UR,2)==1 || URvar==0 )
-%                      webrakeherefornow %the eye has already made the URC for this layer
-                 else
-                     Dev.URC(:,:,n,iLa) = convmat(URvar,Dev.PQR);            % 1 layer convolution matrices for ur
+                 if iLa>1 && Dev.optimizeUconstZ
+                   URvarm=URvar2-URvar(:,:,1,iLa-1);         %does UR vary over wavelength or not
+                   URvarm = max(max(abs( URvarm ),[],1),[],2)/mean(mean(URvar2,1),2);
+                   if abs(URvarm)<varTol
+                     Dev.URC(:,:,n,iLa) = Dev.URC(:,:,n,iLa-1);
+                     continue
+                   end
+                   URvarm=URvar2-URvar(:,:,1,1);
+                   URvarm = max(max(abs( URvarm ),[],1),[],2)/mean(mean(URvar2,1),2);
+                   if abs(URvarm)<varTol
+                     Dev.URC(:,:,n,iLa) = Dev.URC(:,:,n,1);
+                     continue
+                   end
                  end
+%                     counter=counter+1;
+%                     disp([counter,size(URvar2)])
+                     Dev.URC(:,:,n,iLa) = convmat(URvar2,Dev.PQR);            % 1 layer convolution matrices for ur
                end
              end
              % Dev.ERC=[];
@@ -222,20 +247,34 @@ classdef Device < handle
                  Dev.iERC=nan;
              end
              for n = 1 : Nz
+               ERvar = Dev.ER(:,:,n,:);
                for iLa=1:Nla
-                 ERvar = Dev.ER(:,:,n,iLa);
+                 ERvar2 = ERvar(:,:,1,iLa);
                  if Dev.optimizeEconst
-                     ERvarm = mean(mean(ERvar,1),2); %does ER vary over (x,y) or not
-                     ERvarm = max(max(abs( ERvar-ERvarm ),[],1),[],2)/ERvarm;
-                 else
-                     ERvarm=1;
+                     ERvarm = mean(mean(ERvar2,1),2); %does ER vary over (x,y) or not
+                     ERvarm = max(max(abs( ERvar2-ERvarm ),[],1),[],2)/ERvarm;
+                     if abs(ERvarm)<varTol, continue; end %the eye has already made the ERC for this layer
                  end
-                if abs(ERvarm)>1e-10
-                 Dev.ERC(:,:,n,iLa) = convmat(ERvar,Dev.PQR);            % 1 layer convolution matrices for er 
+                 if iLa>1 && Dev.optimizeEconstZ
+                   ERvarm=ERvar2-ERvar(:,:,1,iLa-1);         %does ER vary over wavelength or not
+                   ERvarm = max(max(abs( ERvarm ),[],1),[],2)/mean(mean(ERvar2,1),2);
+                   if abs(ERvarm)<varTol
+                     Dev.ERC(:,:,n,iLa) = Dev.ERC(:,:,n,iLa-1);
+                     continue
+                   end
+                   ERvarm=ERvar2-ERvar(:,:,1,1);
+                   ERvarm = max(max(abs( ERvarm ),[],1),[],2)/mean(mean(ERvar2,1),2);
+                   if abs(ERvarm)<varTol
+                     Dev.ERC(:,:,n,iLa) = Dev.ERC(:,:,n,1);
+                     continue
+                   end
+                 end
+%                  counter=counter+1;
+%                  disp([counter,size(ERvar2)])
+                 Dev.ERC(:,:,n,iLa) = convmat(ERvar2,Dev.PQR);            % 1 layer convolution matrices for er 
                  if Dev.improveConvergenceE
-                     Dev.iERC(:,:,n,iLa) = convmat(1./ERvar,Dev.PQR);
+                     Dev.iERC(:,:,n,iLa) = convmat(1./ERvar2,Dev.PQR);
                  end
-                end
                end
              end
              % CompactMemDevice(Dev);
@@ -266,51 +305,100 @@ classdef Device < handle
          function ShowLayer(Dev,nlayer,nLa)
              % Purpose: show certain layer of builded device
              % Input: nlayer--the layer which will be shown
-             if nargin<3, nLa=1; end
-             titlestr=[' image of layer: ', num2str(nlayer) 'at wavelength: ' num2str(nLa)];
-             figure 
-             subplot(121);
-             v=real(Dev.ER(:,:,nlayer,nLa)');
+           if nargin<3, nLa=1; end
+           for ii=0:1
+             titlestr=[' image of layer: ', num2str(nlayer) ' at wavelength: ' num2str(nLa)];
+%              title(titlestr);
+             figure('Name',titlestr);
+             titlestr='';
+
+             vv=Dev.ER(:,:,nlayer,nLa)';
+             if ii, vv = fftshift(fft2(vv)) / numel(vv); end
+             
+             subplot(221);
+             v=real(vv);
              imagesc(v);
-             title(['ER' titlestr])
+             title(['Re(ER)' titlestr])
              xlabel('x (\mum)');
              ylabel('y (\mum)');
              if ~isvector(v), axis equal; end
              axis tight;
 %              set(gca,'XAxisLocation','top');
              colorbar;
-             subplot(122);
-             v=real(Dev.UR(:,:,nlayer,nLa)');
+             subplot(223);
+             v=imag(vv);
+             imagesc(v);
+             title(['Im(ER)' titlestr])
+             xlabel('x (\mum)');
+             ylabel('y (\mum)');
+             if ~isvector(v), axis equal; end
+             axis tight;
+%              set(gca,'XAxisLocation','top');
+             colorbar;
+
+             vv=Dev.UR(:,:,nlayer,nLa)';
+             if ii, vv = fftshift(fft2(vv)) / numel(vv); end
+
+             subplot(222);
+             v=real(vv);
              imagesc(v);
              xlabel('x (\mum)');
              ylabel('y (\mum)');
-             title(['UR' titlestr])
+             title(['Re(UR)' titlestr])
+             if ~isvector(v), axis equal; end
+             axis tight;
+%              set(gca,'YDir','reverse');
+%              set(gca,'XAxisLocation','top');
+             colorbar;
+             subplot(224);
+             v=imag(vv);
+             imagesc(v);
+             xlabel('x (\mum)');
+             ylabel('y (\mum)');
+             title(['Im(UR)' titlestr])
              if ~isvector(v), axis equal; end
              axis tight;
 %              set(gca,'YDir','reverse');
 %              set(gca,'XAxisLocation','top');
 %              colormap(flipud(autumn));
              colorbar;
+           end
          end
          
          function ShowConvLayer(Dev,nlayer,nLa)
              % Purpose: show certain layer of builded device
              % Input: nlayer--the layer which will be shown
              if nargin<3, nLa=1; end
-             titlestr=[' image of layer: ', num2str(nlayer) 'at wavelength: ' num2str(nLa)];
-             figure 
-             subplot(121);
+             titlestr=[' image of layer: ', num2str(nlayer) ' at wavelength: ' num2str(nLa)];
+%              title(titlestr);
+             figure('Name',titlestr);
+             titlestr='';
+             subplot(221);
              imagesc(real(Dev.ERC(:,:,nlayer,nLa)'));
              xlabel('N_x');
              ylabel('N_y');
-             title(['Convolution ER' titlestr])
+             title(['Re(Convolution of ER)' titlestr])
              axis equal tight;
              colorbar;
-             subplot(122);
+             subplot(222);
              imagesc(real(Dev.URC(:,:,nlayer,nLa)'));
              xlabel('N_x');
              ylabel('N_y');
-             title(['Convolution UR' titlestr])
+             title(['Re(Convolution of UR)' titlestr])
+             axis equal tight;
+             colorbar;
+             subplot(223);
+             imagesc(imag(Dev.ERC(:,:,nlayer,nLa)'));
+             xlabel('N_x');
+             ylabel('N_y');
+             title(['Im(Convolution of ER)' titlestr])
+             axis equal tight;
+             colorbar;
+             subplot(224);
+             imagesc(imag(Dev.URC(:,:,nlayer,nLa)'));
+             xlabel('N_x');
+             ylabel('N_y');
+             title(['Im(Convolution of UR)' titlestr])
              axis equal tight;
              colorbar;
          end

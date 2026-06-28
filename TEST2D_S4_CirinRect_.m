@@ -16,30 +16,41 @@ fa=1/1000;
 fswep=linspace(0.5,0.55,301)*fa;
 lambda=1./fswep;
 epssup=1;epssdn=1;
-num_xy=521;
+num_xy=512*2*4;
 numz=1;
-num_har=7;
+num_har=7*(3+2+1);
 
 mid_layer=Material('TZH',[eps_layer,1]);
 Air = Material('test',[1,1]);
 ShowProcess=1;
 Simul = RCWA([epssup,1],[epssdn,1],ShowProcess);
+Simul.Dispersion(0);
 S = Source(lambda,[0,0],[1,0]);
 Dev = Device([width,width],[num_xy,num_xy],[num_har,num_har]);
 Dev.optimizeUconst=01;
 Dev.optimizeEconst=01;
+Dev.optimizeUconstZ=01;
+Dev.optimizeEconstZ=01;
 AddLayer(Dev,mid_layer,d,1);
 AddPattern(Dev,'Cylinder',[width/2,width/2],radius,[1],Air);
 %% Run Simulations
-RCWARun(Simul,S,Dev)
-% PlotRT(Simul)
+tic
+RCWARun(Simul,S,Dev,[],01/0.05)
+toc
+PlotRT(Simul)
 %% 
 figure()
-plot(fswep*1000,Simul.T/100,'b','linewidth',2);
+plot(fswep*1000,Simul.T(:,1)/100,'b','linewidth',2);
 hold on
-plot(fswep*1000,Simul.R/100,'r','linewidth',2);
+plot(fswep*1000,Simul.R(:,1)/100,'r','linewidth',2);
+plot(fswep*1000,Simul.T(:,2)/100,'b--','linewidth',2);
+plot(fswep*1000,Simul.R(:,2)/100,'r--','linewidth',2);
 legend('Transmission','Reflection','location','best');
+% legend('Transmission','Reflection','Transmission2','Reflection2','location','best');
 xlim([0.5 0.55]);
 xlabel('Frequency (2\pi c/a)');
 ylabel('Transmission and Reflection');
 saveas(gcf,'./figures/TEST2D_S4_CirinRect_.png');
+
+figure;
+plot(fswep*1000,Simul.kzMin);

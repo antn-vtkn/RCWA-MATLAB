@@ -33,9 +33,10 @@ AddLayer(Dev,eps_layer_2,d2,1);
 end
 
 % Run Simulations
-RCWARun(Simul,S,Dev)
+RCWARun(Simul,S,Dev,[],0/0)
 PlotRT(Simul)
 
+saveas(gcf,'./figures/TEST1D_Python_BragGratting_.png');
 
 %% 在此尝试人为定义Grating
 Simul_TZH = RCWA([epssup,musup],[epssdn,mudn],ShowProcess);
@@ -52,7 +53,7 @@ end
 Simul_TZH.WhetherBuildLayer=0;
 AddMaterial_Manual(DevTZH,ER,UR,d);
 %%
-RCWARun(Simul_TZH,S,DevTZH)
+RCWARun(Simul_TZH,S,DevTZH,[],0/0)
 PlotRT(Simul_TZH)
 
-saveas(gcf,'./figures/TEST1D_Python_BragGratting_.png');
+saveas(gcf,'./figures/TEST1D_Python_BragGratting__.png');

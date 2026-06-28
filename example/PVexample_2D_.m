@@ -28,7 +28,9 @@ Air = Material('Air',1);
 % Al = Material('Al');
 Si.Selectn(S);
 % Build device input: [length,width],[number in x,number in y](should be in proportion),[spatial harmonics]
-D = Device([0.06,0.06],[1024,1024],[25,25]);
+Nfft=1024/1;
+Nharm=2+5;
+D = Device([0.06,0.06],[Nfft,Nfft],[Nharm,Nharm]);
 % D.improveConvergenceE=01;
 D.optimizeUconst=01;
 D.optimizeEconst=01;
@@ -51,12 +53,12 @@ AddPattern(D,'Cylinder',[0.03,0.03],0.02,1,Air);
 D.BuildLayer(1);
 D.BuildPattern(1);
 ShowLayer(D,1);
-ShowConvLayer(D,1);
-rtyweywtywwtrye
+% % % ShowConvLayer(D,1);
+% rtyweywtywwtrye
 toc
 tic
 % try
-RCWARun(Simul,S,D)
+RCWARun(Simul,S,D,[],0/0)
 % end
 toc
 tic

@@ -14,6 +14,8 @@ classdef RCWA < handle
         Trn_order               % transmission in each order
         source                  % source of the simulation
         device                  % device of the simulation
+        
+        kzMin                   % for diagnostics
     end
     
     properties 
@@ -149,7 +151,7 @@ classdef RCWA < handle
             end
             parfor (nlam = 1 : NLAM, abs(Nparallel))
                 % Make patterns in the layer input:[center],radius,[in which ilayer],[er, ur]
-                [Ref,Trn] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam);
+                [Ref,Trn,~,~,kzMin] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam);
                 if ObjRCWA.RecordDifOrder == 1
                     Ref_order_(:,:,nlam,:) = reshape(Ref,PQR);            % record refection in each order
                     Trn_order_(:,:,nlam,:) = reshape(Trn,PQR);            % record transmission in each order
@@ -158,6 +160,7 @@ classdef RCWA < handle
                 Trn = sum(Trn,1);
                 RR(nlam,:) = 100*Ref;
                 TT(nlam,:) = 100*Trn;
+                KzMin(nlam,:)=kzMin';
                 % caculate field in device 
                 if ObjRCWA.RecordField == 1
                     if ObjRCWA.field.CoordXYZ ~= 0
@@ -171,13 +174,14 @@ classdef RCWA < handle
             end
             ObjRCWA.R = RR;
             ObjRCWA.T = TT;
+            ObjRCWA.kzMin = KzMin;
             for nlam = 1 : NLAM
                 if ObjRCWA.ShowProcess == 1
                     waitbar(nlam/NLAM,h,'I am working, please don''t disturb me ...');
-%                     if getappdata(h,'canceling')
-%                         delete(h)
-%                         break
-%                     end
+                    if getappdata(h,'canceling')
+                        delete(h)
+                        break
+                    end
                 end
             end
             if ObjRCWA.RecordDifOrder == 1 
@@ -252,14 +256,21 @@ classdef RCWA < handle
             
             Nplot=size(ObjRCWA.R,2);
             for ii=1:Nplot
-                if ii==1
-                    lnspc='-';
-                else
-                    lnspc='--';
+                switch ii
+                    case 1
+                        lnspc='-';
+                    case 2
+                        lnspc='--';
+                    case {3,5}
+                        lnspc='-.';
+                    case {4,6}
+                        lnspc=':';
+                    otherwise
+                        lnspc=':';
                 end
-            if doRTA(1), plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,ObjRCWA.R(:,1),[lnspc 'r'],'LineWidth',2); hold on; end
-            if doRTA(2), plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,ObjRCWA.T(:,1),[lnspc 'b'],'LineWidth',2); end
-            if doRTA(3)||(doRTA(1)&&doRTA(2)), plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,100-(ObjRCWA.R(:,1)+ObjRCWA.T(:,1)),[lnspc 'k'],'LineWidth',2); end
+            if doRTA(1), plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,ObjRCWA.R(:,ii),[lnspc 'r'],'LineWidth',2); hold on; end
+            if doRTA(2), plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,ObjRCWA.T(:,ii),[lnspc 'b'],'LineWidth',2); end
+            if doRTA(3)||(doRTA(1)&&doRTA(2)), plot(ObjRCWA.source.wavelength/ObjRCWA.nanometers,100-(ObjRCWA.R(:,ii)+ObjRCWA.T(:,ii)),[lnspc 'k'],'LineWidth',2); end
             end
             hold off;
             
