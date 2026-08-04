@@ -91,7 +91,7 @@ classdef RCWA < handle
             
             ObjRCWA.source = source;
             ObjRCWA.device = device;
-            PQR=[device.PQR(1:2),2];%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            PQR=[device.PQR(1:2),22];%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if  ObjRCWA.dispersion == 0             % deal with dispersion of the mateiral
                 if ObjRCWA.WhetherBuildLayer==1
                     BuildLayer(ObjRCWA.device);
@@ -146,8 +146,8 @@ classdef RCWA < handle
                 % Make patterns in the layer input:[center],radius,[in which ilayer],[er, ur]
                 [Ref,Trn] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam);
                 if ObjRCWA.RecordDifOrder == 1
-                    Ref_order_(:,:,nlam,:) = reshape(Ref,PQR);            % record refection in each order
-                    Trn_order_(:,:,nlam,:) = reshape(Trn,PQR);            % record transmission in each order
+                    Ref_order_(:,:,nlam,:) = reshape(Ref,PQR(1),PQR(2),1,PQR(3));            % record refection in each order
+                    Trn_order_(:,:,nlam,:) = reshape(Trn,PQR(1),PQR(2),1,PQR(3));            % record transmission in each order
                 end
                 Ref = sum(Ref,1);
                 Trn = sum(Trn,1);

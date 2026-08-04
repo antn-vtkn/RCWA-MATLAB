@@ -266,6 +266,9 @@ delta(ceil(NH/2),1) = 1;
 % Compute source feild
 E_src = [delta.*[sP(1),sQ(1)];delta.*[sP(2),sQ(2)]];
 % E_src = [sP(1)*delta;sP(2)*delta];
+if 1
+ E_src=[E_src circshift(E_src,-1) circshift(E_src,1) circshift(E_src,-2) circshift(E_src,2) circshift(E_src,-3) circshift(E_src,3) circshift(E_src,-4) circshift(E_src,4) circshift(E_src,-5) circshift(E_src,5)];
+end
 
 % Compute source modal coefficients
 C_src = W_ref\E_src;
