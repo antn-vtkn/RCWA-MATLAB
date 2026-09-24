@@ -18,10 +18,10 @@ I also recommend the following references:
 [6] [Computational Electromagnetics](https://empossible.net/academics/emp5337/)
 
 # User manual
-The program use object oriented programming paradigm in Matlab without using any toolboxes. So only a valide version of Matlab is needed to use it. 
+The program use object oriented programming paradigm in Matlab without using any toolboxes. So only a valid version of Matlab is needed to use it. 
 
 ## Installation
-No installation is need but the path has to be added in Matlab as shown in the examples.
+No installation is needed but the path has to be added in Matlab as shown in the examples and below.
 
 ## How to use 
 
@@ -34,15 +34,23 @@ Four Objects are mainly used: RCWA, Source, Device and Material.
   - Device is used to define the details of the simulated structure. In this program different shapes (cylinder, rectangle etc.) can be included.
   - Material is a seperate object to control materials used in simulation. Users have to include reflective index according to a certain format as shown in the material folder. In addition simple reflective index can be defined directly as the example shown in defining the reflective index of Air.
 
-To use this, functions should be added to path:
+To use this, directories with functions should be added to path:
 
 ```matlab
-addpath('material\');
-addpath('RCWA\');
-addpath('shape\');
+addpath('RCWA-MATLAB-module\material\');
+addpath('RCWA-MATLAB-module\RCWA\');
+addpath('RCWA-MATLAB-module\shape\');
 ```
 
-## Some Example
+or:
+
+```matlab
+addpath(genpath('RCWA-MATLAB-module\'));
+```
+
+or you can use the RCWAupdatePATH function.
+
+## Some Examples
 
 ### The 1D grating
 
@@ -82,25 +90,25 @@ Benchmark with S4 results [4];
 
 
 
-## Simple explanation of the function
+## Simple explanation of the functions
 
 The detailed use should be given in the future, and now I summarize the following simple usage
 
-* Build new RCWA simulation objects
+* Build a new RCWA simulation object
 
 ```matlab
 % Build new simulation input: ref index [er,ur], trn index [er,ur],waitbar
 Simul = RCWA([1,1],[1,1],ShowProcess);
 ```
 
-* Build new sources
+* Build a new source
 
 ```matlab
 % Build source input: [wavelength],[theta(angle with axis XZ),phi(angle in the XY plane)], polarization
 S = Source([300:800],[0,0],[1/sqrt(2),1/sqrt(2)]); % 单位是nm
 ```
 
-* Build new device
+* Build a new device
 
 ```
 % Build device input: [length,width],[number in x,number in y](should be in proportion),[spatial harmonics]

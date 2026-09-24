@@ -1,4 +1,4 @@
-addpath(genpath('.\RCWA-MATLAB-module\'));
+addpath(genpath('..\RCWA-MATLAB-module\'));
 
 
 
