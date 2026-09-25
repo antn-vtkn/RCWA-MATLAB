@@ -29,12 +29,11 @@ classdef Pyramid < PatternShape
             % direction
             layernum = numel(Pyramid.nlayer);
             rectcenter = Pyramid.center;
-            rectrectxy = Pyramid.rectxy;            
-            gapx = rectrectxy(1)/(layernum-1);
-            gapy = rectrectxy(2)/(layernum-1);
+            rectrectxy = Pyramid.rectxy; 
+            rectrectxyRatio=0;
+            gapRatio = (1-rectrectxyRatio)/(layernum-1);
             rectmaterial = Pyramid.material;
 
-            p = 0;
             if nargin == 2
                 recter = Pyramid.er;
                 rectur = Pyramid.ur;
@@ -44,8 +43,9 @@ classdef Pyramid < PatternShape
             else
                 error('Input problem')
             end
+            p = 0.5;
             for i =  Pyramid.nlayer
-                Rect = Rectangle(rectcenter,[rectrectxy(1)-p*gapx,rectrectxy(2)-p*gapy],i,rectmaterial,[recter,rectur]);
+                Rect = Rectangle(rectcenter,rectrectxy.*(1-p*gapRatio),i,rectmaterial,[recter,rectur]);
                 BuildPattern(Rect,Dev);
                 p = p+1;
             end

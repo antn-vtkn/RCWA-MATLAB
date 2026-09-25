@@ -23,8 +23,8 @@ classdef Rectangle < PatternShape
                 Rect.ur = material.ur;
                 Rect.material = material.MaterialName;
             elseif nargin == 5
-                Rect.er = varargin{1}(1,1);
-                Rect.ur = varargin{1}(1,2);
+                Rect.er = varargin{1}(:,1);
+                Rect.ur = varargin{1}(:,2);
                 Rect.material = material;
             else 
                 error('There is a problem with the number of inputs');
@@ -43,7 +43,8 @@ classdef Rectangle < PatternShape
             recty = Rect.rectxy(2);
             Lx = Dev.xydimension(1);
             Ly = Dev.xydimension(2);
-            if x0-rectx/2 < 0 || y0-recty/2 < 0 || x0+rectx/2 > Lx || y0+recty/2 > Ly
+%             if x0-rectx/2 < 0 || y0-recty/2 < 0 || x0+rectx/2 > Lx || y0+recty/2 > Ly
+            if rectx > Lx || recty > Ly
                 error('The rectangle is too large!')
             end
             Nx = Dev.idimension(1);
@@ -52,20 +53,38 @@ classdef Rectangle < PatternShape
 %             UR = Dev.UR;            
             dx = Lx/Nx;
             dy = Ly/Ny;
-            nx = ceil(rectx/(2*dx));
-            nx0 = round(x0*Nx/Lx);
-            nx1 = nx0-nx+1;
-            nx2 = nx0+nx-1;
-            ny = ceil(recty/(2*dy));
-            ny0 = round(y0*Ny/Ly);
-            ny1 = ny0-ny+1;
-            ny2 = ny0+ny-1;
+            if isinf(rectx)
+                nxrange=1:Nx;
+            else
+                nx = rectx/(2*dx);
+                nx0 = x0/dx;
+                nx1 = mod(ceil(nx0-nx),Nx)+1;
+                nx2 = mod(ceil(nx0+nx)-1,Nx)+1;
+                if nx2<nx1
+                    nxrange=[1:nx2,nx1:Nx];
+                else
+                    nxrange=nx1:nx2;
+                end
+            end
+            if isinf(recty)
+                nyrange=1:Nyx;
+            else
+                ny = recty/(2*dy);
+                ny0 = y0/dy;
+                ny1 = mod(ceil(ny0-ny),Ny)+1;
+                ny2 = mod(ceil(ny0+ny)-1,Ny)+1;
+                if ny2<ny1
+                    nyrange=[1:ny2,ny1:Ny];
+                else
+                    nyrange=ny1:ny2;
+                end
+            end
             if nargin == 2
-                Dev.ER(nx1:nx2,ny1:ny2,Rect.nlayer,:) =  Rect.er;
-                Dev.UR(nx1:nx2,ny1:ny2,Rect.nlayer,:) =  Rect.ur;
+                Dev.ER(nxrange,nyrange,Rect.nlayer,:) =  Rect.er;
+                Dev.UR(nxrange,nyrange,Rect.nlayer,:) =  Rect.ur;
             elseif nargin == 3
-                Dev.ER(nx1:nx2,ny1:ny2,Rect.nlayer,:) = ones(2*nx-1,2*ny-1,numel(Rect.nlayer)).*shiftdim(Rect.er(varargin{1},2),-3);
-                Dev.UR(nx1:nx2,ny1:ny2,Rect.nlayer,:) = ones(2*nx-1,2*ny-1,numel(Rect.nlayer)).*shiftdim(Rect.ur(varargin{1},2),-3);
+                Dev.ER(nxrange,nyrange,Rect.nlayer,:) = ones(length(nxrange),length(nyrange),numel(Rect.nlayer)).*shiftdim(Rect.er(varargin{1},2),-3);
+                Dev.UR(nxrange,nyrange,Rect.nlayer,:) = ones(length(nxrange),length(nyrange),numel(Rect.nlayer)).*shiftdim(Rect.ur(varargin{1},2),-3);
             else
                 error('Check input number')
             end

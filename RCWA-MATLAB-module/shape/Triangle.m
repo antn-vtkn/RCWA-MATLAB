@@ -16,7 +16,7 @@ classdef Triangle < PatternShape
         function Tri = Triangle(center,SideLength,nlayer,material)
             Tri = Tri@PatternShape(center,nlayer);
             if numel(SideLength) == 1
-                Tri.SideLength = SideLength;
+                Tri.SideLength = SideLength;%negative value for an upside-down triangle; doesn't work well yet
             else
                 error('Check the radius input')
             end
@@ -40,29 +40,51 @@ classdef Triangle < PatternShape
             dx = Lx/Nx;
             dy = Ly/Ny;
             SideLen = Tri.SideLength;
-            h = 0.5*sqrt(3)*SideLen; 
+            UpsideDown=SideLen<0;
+            SideLen=abs(SideLen);
+            h = 0.5*sqrt(3)*SideLen;
             x0 = Tri.center(1);
             y0 = Tri.center(2);
-            if abs((Lx/2-x0))+SideLen/2 > Lx/2 || h*2/3-(Ly/2-y0)>Ly/2 ...
-                    ... || h/3 + (Ly/2-y0)>Ly/2
+%             if abs((Lx/2-x0))+SideLen/2 > Lx/2 || h*2/3+y0>Ly ...
+%                     ... || -h/3+y0<0
+            if SideLen > Lx || h>Ly
                 error('The rectangle is too large!')
             end            
-            nxm = floor((Lx/2-x0)/dx);
-            nym = floor((Ly/2-y0)/dy);
-            ny = round(h/dy); 
-            ny1 = round((Ny - ny)/2)-nym; 
-            ny2 = ny1 + ny - 1;
-            for ny = ny1 : ny2
-                f = (ny - ny1)/(ny2 - ny1);
-                nx = round(f*SideLen/Lx*Nx);
-                nx1 = 1 + floor((Nx - nx)/2)-nxm;
-                nx2 = nx1 + nx;
+            nxm = (Lx/2-x0)/dx;
+            nym = (Ly/2-y0)/dy;
+            ny = h/dy; 
+            ny1 = (Ny/2 - (1+~UpsideDown)*ny/3)-nym; 
+            ny2 = ny1 + ny;
+            ny1i = ceil(ny1)+1; 
+            ny2i = ceil(ny2);
+            for n = ny1i:ny2i
+                if UpsideDown
+                    f=ny2-(n-0.5); 
+                else
+                    f=(n-0.5)-ny1; 
+                end
+                f = f / (ny2-ny1);
+                nx = f*SideLen/dx;
+                if abs(nx)<0.5, continue; end
+                nx1=(Nx - nx)/2-nxm;
+                nx2=nx1 + nx;
+                nx1i=ceil(nx1)+1;
+                nx2i=ceil(nx2);
+                if (nx2i-nx1i)*(nx2-nx1)<0, continue; end
+                nx1i = mod(  nx1i-1,Nx)+1;
+                nx2i = mod(  nx2i-1,Nx)+1;
+                if nx2i<nx1i
+                    nxrange=[1:nx2i,nx1i:Nx];
+                else
+                    nxrange=nx1i:nx2i;
+                end
+                ny=mod(n-1,Ny)+1;
                 if nargin == 2
-                    Dev.ER(nx1:nx2,ny,Tri.nlayer,:) = Tri.er;
-                    Dev.UR(nx1:nx2,ny,Tri.nlayer,:) = Tri.ur;
+                    Dev.ER(nxrange,ny,Tri.nlayer,:) = Tri.er;
+                    Dev.UR(nxrange,ny,Tri.nlayer,:) = Tri.ur;
                 elseif nargin == 3
-                    Dev.ER(nx1:nx2,ny,Tri.nlayer,:) = ones(nx+1,1,numel(Rect.nlayer)).*shiftdim(Tri.er(varargin{1},2),-3);
-                    Dev.UR(nx1:nx2,ny,Tri.nlayer,:) = ones(nx+1,1,numel(Rect.nlayer)).*shiftdim(Tri.ur(varargin{1},2),-3);
+                    Dev.ER(nxrange,ny,Tri.nlayer,:) = ones(length(nxrange),1,numel(Tri.nlayer)).*shiftdim(Tri.er(varargin{1},2),-3);
+                    Dev.UR(nxrange,ny,Tri.nlayer,:) = ones(length(nxrange),1,numel(Tri.nlayer)).*shiftdim(Tri.ur(varargin{1},2),-3);
                 else
                     error('Check input number')
                 end

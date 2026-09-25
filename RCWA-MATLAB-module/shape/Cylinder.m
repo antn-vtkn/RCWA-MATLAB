@@ -34,7 +34,8 @@ classdef Cylinder < PatternShape
             Lx = Dev.xydimension(1);
             Ly = Dev.xydimension(2);
             r = Cylin.radius;
-            if x0-r <= 0 || y0-r <= 0 || x0+r >= Lx || y0+r >= Ly
+%             if x0-r <= 0 || y0-r <= 0 || x0+r >= Lx || y0+r >= Ly
+            if 2*r > min(Lx,Ly)
                 error('The radius is too large!')
             end
             Nx = Dev.idimension(1);
@@ -43,23 +44,34 @@ classdef Cylinder < PatternShape
 %             UR = Dev.UR;
             dx = Lx/Nx;
             dy = Ly/Ny;
-            nx = round(r/dx);
-            nx0 = round(x0*Nx/Lx);
-            nx1 = nx0 - nx;
-            nx2 = nx0 + nx;
+            nx = (r/dx);
+            nx0 = (x0/dx);
+            nx1 = ceil(nx0 - nx)+1;
+            nx2 = ceil(nx0 + nx);
 
             for n = nx1:nx2
-                Dy=sqrt(r^2 - (n*dx-x0)^2);
-                ny1 = real(y0-Dy);
-                ny2 = real(y0+Dy);
-                ny1 = round(ny1/dy);
-                ny2 = round(ny2/dy);
+                Dx=(n-0.5)*dx-x0;
+                Dy=real(sqrt(r^2 - (Dx)^2));
+                if abs(Dy/dy)<0.5, continue; end
+                ny1 = (y0-Dy)/dy;
+                ny2 = (y0+Dy)/dy;
+                ny1i = ceil(ny1)+1;
+                ny2i = ceil(ny2);
+                if (ny2i-ny1i)*(ny2-ny1)<0, continue; end
+                ny1i = mod(ny1i-1,Ny)+1;
+                ny2i = mod(ny2i-1,Ny)+1;
+                if ny2i<ny1i
+                    nyrange=[1:ny2i,ny1i:Ny];
+                else
+                    nyrange=ny1i:ny2i;
+                end
+                nx=mod(n-1,Nx)+1;
                 if nargin == 2
-                    Dev.ER(n,ny1:ny2,Cylin.nlayer,:)=Cylin.er;
-                    Dev.UR(n,ny1:ny2,Cylin.nlayer,:)=Cylin.ur;
+                    Dev.ER(nx,nyrange,Cylin.nlayer,:)=Cylin.er;
+                    Dev.UR(nx,nyrange,Cylin.nlayer,:)=Cylin.ur;
                 elseif nargin == 3
-                    Dev.ER(n,ny1:ny2,Cylin.nlayer,:)=ones(1,ny2-ny1+1,numel(Rect.nlayer)).*shiftdim(Cylin.er(varargin{1},2),-3);
-                    Dev.UR(n,ny1:ny2,Cylin.nlayer,:)=ones(1,ny2-ny1+1,numel(Rect.nlayer)).*shiftdim(Cylin.ur(varargin{1},2),-3);
+                    Dev.ER(nx,nyrange,Cylin.nlayer,:)=ones(1,length(nyrange),numel(Cylin.nlayer)).*shiftdim(Cylin.er(varargin{1},2),-3);
+                    Dev.UR(nx,nyrange,Cylin.nlayer,:)=ones(1,length(nyrange),numel(Cylin.nlayer)).*shiftdim(Cylin.ur(varargin{1},2),-3);
                 else
                     error('Check input number')
                 end

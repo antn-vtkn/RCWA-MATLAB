@@ -306,62 +306,53 @@ classdef Device < handle
              % Purpose: show certain layer of builded device
              % Input: nlayer--the layer which will be shown
            if nargin<3, nLa=1; end
+           onepage=1;
            for ii=0:1
              titlestr=[' image of layer: ', num2str(nlayer) ' at wavelength: ' num2str(nLa)];
 %              title(titlestr);
-             figure('Name',titlestr);
-             titlestr='';
+             totheright=ii&&onepage;
+             if ~totheright, figure('Name',titlestr); end
 
-             vv=Dev.ER(:,:,nlayer,nLa)';
-             if ii, vv = fftshift(fft2(vv)) / numel(vv); end
-             
-             subplot(221);
-             v=real(vv);
-             imagesc(v);
-             title(['Re(ER)' titlestr])
-             xlabel('x (\mum)');
-             ylabel('y (\mum)');
-             if ~isvector(v), axis equal; end
-             axis tight;
-%              set(gca,'XAxisLocation','top');
-             colorbar;
-             subplot(223);
-             v=imag(vv);
-             imagesc(v);
-             title(['Im(ER)' titlestr])
-             xlabel('x (\mum)');
-             ylabel('y (\mum)');
-             if ~isvector(v), axis equal; end
-             axis tight;
-%              set(gca,'XAxisLocation','top');
-             colorbar;
+             for icol=1:2
+                 if icol==1
+                     vv=Dev.ER(:,:,nlayer,nLa)';
+                     valuestr='ER';
+                 elseif icol==2
+                     vv=Dev.UR(:,:,nlayer,nLa)';
+                     valuestr='UR';
+                 else
+                     vv=nan+1i*nan;
+                     valuestr='#';
+                 end
+                 if ii, vv = fftshift(fft2(vv)) / numel(vv); end
 
-             vv=Dev.UR(:,:,nlayer,nLa)';
-             if ii, vv = fftshift(fft2(vv)) / numel(vv); end
-
-             subplot(222);
-             v=real(vv);
-             imagesc(v);
-             xlabel('x (\mum)');
-             ylabel('y (\mum)');
-             title(['Re(UR)' titlestr])
-             if ~isvector(v), axis equal; end
-             axis tight;
-%              set(gca,'YDir','reverse');
-%              set(gca,'XAxisLocation','top');
-             colorbar;
-             subplot(224);
-             v=imag(vv);
-             imagesc(v);
-             xlabel('x (\mum)');
-             ylabel('y (\mum)');
-             title(['Im(UR)' titlestr])
-             if ~isvector(v), axis equal; end
-             axis tight;
-%              set(gca,'YDir','reverse');
-%              set(gca,'XAxisLocation','top');
-%              colormap(flipud(autumn));
-             colorbar;
+                 for irow=1:2
+                     ncols=2+2*~~onepage;
+                     subplot(2,ncols,ncols*(irow-1)+2*totheright+icol);
+                     if irow==1
+                         v=real(vv);
+                         partstr='Re';
+                     elseif irow==2
+                         v=imag(vv);
+                         partstr='Im';
+                     else
+                         v=nan;
+                         partstr='#';
+                     end
+                     imagesc(v);
+                     titlestr=[partstr '(' valuestr ')'];
+                     if ii, titlestr=['Fourier[' titlestr ']']; end
+                     title(titlestr)
+                     xlabel('x (\mum)');
+                     ylabel('y (\mum)');
+                     if ~isvector(v), axis equal; end
+                     axis tight;
+%                      set(gca,'YDir','reverse');
+%                      set(gca,'XAxisLocation','top');
+%                      colormap(flipud(autumn));
+                     colorbar;
+                 end
+             end
            end
          end
          
@@ -373,34 +364,38 @@ classdef Device < handle
 %              title(titlestr);
              figure('Name',titlestr);
              titlestr='';
-             subplot(221);
-             imagesc(real(Dev.ERC(:,:,nlayer,nLa)'));
-             xlabel('N_x');
-             ylabel('N_y');
-             title(['Re(Convolution of ER)' titlestr])
-             axis equal tight;
-             colorbar;
-             subplot(222);
-             imagesc(real(Dev.URC(:,:,nlayer,nLa)'));
-             xlabel('N_x');
-             ylabel('N_y');
-             title(['Re(Convolution of UR)' titlestr])
-             axis equal tight;
-             colorbar;
-             subplot(223);
-             imagesc(imag(Dev.ERC(:,:,nlayer,nLa)'));
-             xlabel('N_x');
-             ylabel('N_y');
-             title(['Im(Convolution of ER)' titlestr])
-             axis equal tight;
-             colorbar;
-             subplot(224);
-             imagesc(imag(Dev.URC(:,:,nlayer,nLa)'));
-             xlabel('N_x');
-             ylabel('N_y');
-             title(['Im(Convolution of UR)' titlestr])
-             axis equal tight;
-             colorbar;
+             for icol=1:2
+                 if icol==1
+                     vv=Dev.ERC(:,:,nlayer,nLa)';
+                     valuestr='ER';
+                 elseif icol==2
+                     vv=Dev.URC(:,:,nlayer,nLa)';
+                     valuestr='UR';
+                 else
+                     vv=nan+1i*nan;
+                     valuestr='#';
+                 end
+
+                 for irow=1:2
+                     subplot(2,2,2*(irow-1)+icol);
+                     if irow==1
+                         v=real(vv);
+                         partstr='Re';
+                     elseif irow==2
+                         v=imag(vv);
+                         partstr='Im';
+                     else
+                         v=nan;
+                         partstr='#';
+                     end
+                     imagesc(v);
+                     xlabel('N_x');
+                     ylabel('N_y');
+                     title([partstr '(Convolution of ' valuestr ')' titlestr])
+                     axis equal tight;
+                     colorbar;
+                 end
+             end
          end
 
          

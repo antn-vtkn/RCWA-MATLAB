@@ -39,7 +39,8 @@ classdef Ellipse < PatternShape
             Ny = Dev.idimension(2);
             Lx = Dev.xydimension(1);
             Ly = Dev.xydimension(2);            
-            if x0-r1 <= 0 || Lx-x0-r1 <= 0 || y0-r2 <= 0 || Ly-y0-r2 <=0
+%             if x0-r1 <= 0 || Lx-x0-r1 <= 0 || y0-r2 <= 0 || Ly-y0-r2 <=0
+            if 2*r1>Lx || 2*r2>Ly
                 error('The radius is too large!')
             end
 
@@ -47,25 +48,35 @@ classdef Ellipse < PatternShape
 %             UR = Dev.UR;
             dx = Lx/Nx;
             dy = Ly/Ny;
-            nx = round(r1/dx);
+            nx = (r1/dx);
             % ny = round(r2/dy);
-            nx0 = round(x0*Nx/Lx);
-            nx1 = nx0 - nx;
-            nx2 = nx0 + nx;
+            nx0 = (x0*Nx/Lx);
+            nx1 = ceil(nx0 - nx)+1;
+            nx2 = ceil(nx0 + nx);
 
             for n = nx1:nx2
-                Dy=(n*dx-x0)/r1;
-                Dy=sqrt(1-Dy^2)*r2;
-                ny1 = real(y0-Dy);
-                ny2 = real(y0+Dy);
-                ny1 = round(ny1/dy);
-                ny2 = round(ny2/dy);
+                Dy=((n-0.5)*dx-x0)/r1;
+                Dy=real(sqrt(1-Dy^2))*r2;
+                if abs(Dy/dy)<0.5, continue; end
+                ny1 = (y0-Dy)/dy;
+                ny2 = (y0+Dy)/dy;
+                ny1i = ceil(ny1)+1;
+                ny2i = ceil(ny2);
+                if (ny2i-ny1i)*(ny2-ny1)<0, continue; end
+                ny1i = mod(ny1i-1,Ny)+1;
+                ny2i = mod(ny2i-1,Ny)+1;
+                if ny2i<ny1i
+                    nyrange=[1:ny2i,ny1i:Ny];
+                else
+                    nyrange=ny1i:ny2i;
+                end
+                nx=mod(n-1,Nx)+1;
                 if nargin == 2
-                    Dev.ER(n,ny1:ny2,Ellip.nlayer,:)=Ellip.er;
-                    Dev.UR(n,ny1:ny2,Ellip.nlayer,:)=Ellip.ur;
+                    Dev.ER(nx,nyrange,Ellip.nlayer,:)=Ellip.er;
+                    Dev.UR(nx,nyrange,Ellip.nlayer,:)=Ellip.ur;
                 elseif nargin == 3
-                    Dev.ER(n,ny1:ny2,Ellip.nlayer,:)=ones(1,ny2-ny1+1,numel(Rect.nlayer)).*shiftdim(Ellip.er(varargin{1},2),-3);
-                    Dev.UR(n,ny1:ny2,Ellip.nlayer,:)=ones(1,ny2-ny1+1,numel(Rect.nlayer)).*shiftdim(Ellip.ur(varargin{1},2),-3);
+                    Dev.ER(nx,nyrange,Ellip.nlayer,:)=ones(1,length(nyrange),numel(Ellip.nlayer)).*shiftdim(Ellip.er(varargin{1},2),-3);
+                    Dev.UR(nx,nyrange,Ellip.nlayer,:)=ones(1,length(nyrange),numel(Ellip.nlayer)).*shiftdim(Ellip.ur(varargin{1},2),-3);
                 else
                     error('Check input number')
                 end
