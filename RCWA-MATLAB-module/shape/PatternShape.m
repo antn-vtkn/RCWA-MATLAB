@@ -4,17 +4,21 @@ classdef PatternShape <handle & matlab.mixin.Heterogeneous
     properties (Constant)
         EligibleShapes2D={'Cylinder','Ellipse','Rectangle','Triangle'}
         EligibleShapes2DextAdd={'Pyramid'}
+        EligibleShapes3D={'PyramidExt'}
+        CursedShapes2D={'Triangle'}
+        SingleDimShapes2D={'Cylinder'};
+        RadialDefinedShapes2D={'Cylinder','Ellipse'};
     end
     properties
-        center
-        nlayer
-        size
+        center=nan
+        nlayer=nan
+        size=nan
         material Material
     end
     
     methods
         
-        function Shape = PatternShape(center,size,nlayer,material)
+        function Shape = PatternShape(center,sizexy,nlayer,material)
             narginchk(4,4);
             if numel(center) == 2
                 Shape.center = center;
@@ -22,7 +26,7 @@ classdef PatternShape <handle & matlab.mixin.Heterogeneous
                 error('center must be 2 element vector')
             end
             Shape.nlayer = nlayer;
-            Shape.size=size;
+            Shape.size=sizexy;
             Shape.material=material;
         end  
         

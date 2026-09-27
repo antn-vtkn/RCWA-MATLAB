@@ -26,13 +26,13 @@ classdef Cylinder < NamedObject & PatternShape
 
             Lx = Dev.xydimension(1);
             Ly = Dev.xydimension(2);
+            Nx = Dev.idimension(1);
+            Ny = Dev.idimension(2);
             r = Cylin.size(1);
 %             if x0-r <= 0 || y0-r <= 0 || x0+r >= Lx || y0+r >= Ly
             if 2*r>Lx && Nx>1 || 2*r>Ly && Ny>1
                 error('The radius is too large!')
             end
-            Nx = Dev.idimension(1);
-            Ny = Dev.idimension(2);
 %             ER = Dev.ER;
 %             UR = Dev.UR;
             dx = Lx/Nx;

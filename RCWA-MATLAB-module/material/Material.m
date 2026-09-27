@@ -4,9 +4,9 @@ classdef Material < NamedObject & handle
     % the reflective index which will be used.
     properties
         MaterialName char %old syntax
-        n
-        er
-        ur
+        n=nan
+        er=nan
+        ur=nan
         
 
     end

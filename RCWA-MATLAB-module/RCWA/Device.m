@@ -82,16 +82,26 @@ classdef Device < NamedObject & handle
 
         function AddPattern(Dev,shape,varargin)
             % Purpose: add different paterns on specific layers
-          narginchk(2,6);
+          narginchk(2,7);
           switch nargin
             case 2
-              Dev.Pattern = [Dev.Pattern,(shape)];  %pass the object directly here
-            case 6
-              switch shape %this case contains old syntax for compatibility
-                case PatternShape.EligibleShapes2Dext
-                    Dev.Pattern = [Dev.Pattern,(feval(str2func(shape),varargin{:}))];
-                otherwise
-                error('Please Check your spell.');
+              Dev.Pattern = [Dev.Pattern,(shape)];  %pass the object directly here; this is preferred
+              
+            case {6,7} %this case contains old syntax for compatibility
+              if iscell(shape)&&numel(shape)==2
+                  shape2=shape{2};
+                  shape=shape{1};
+                  if ismember(shape,PatternShape.EligibleShapes3D) && ismember(shape2,PatternShape.EligibleShapes2D)
+                      Dev.Pattern = [Dev.Pattern,(feval(str2func(shape),shape2,varargin{:}))];
+                  else
+                      error('Please spell the shape name(s) correctly.');
+                  end
+              else
+                  if ismember(shape,PatternShape.EligibleShapes2Dext)
+                      Dev.Pattern = [Dev.Pattern,(feval(str2func(shape),varargin{:}))];
+                  else
+                      error('Please spell the shape name correctly.');
+                  end
               end
             otherwise
               error('Please provide either Pattern handle or proper inputs for it');

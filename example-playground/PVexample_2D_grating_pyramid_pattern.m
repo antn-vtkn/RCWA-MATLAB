@@ -32,7 +32,7 @@ Al = Material('Al');
 % Build device input: [length,width],[number in x,number in y](should be in proportion),[spatial harmonics]
 Nrefine=10;
 Nz=6*Nrefine;
-Nfft=12*2*Nrefine^0;%1024/16;
+Nfft=12*2*Nrefine^01;%1024/16;
 Nharm=2+0*5;
 D = Device([0.06,0.06],[Nfft,Nfft],[Nharm,Nharm]);
 % D.improveConvergenceE=01;
@@ -52,13 +52,21 @@ AddLayer(D,Si,0.06,Nz);
 % % AddPattern(D,'Ellipse',[2*0.03-0.01,2*0.03+0.01],[0.02 0.02/2],1,Al);
 % AddPattern(D,'Cylinder',[0.15,0.15],0.05,1,Si);
 % AddPattern(D,'Cylinder',[0.45,0.45],0.05,1,Si);
-if 01
-AddPattern(D,'Pyramid',[0.03,0.03],[0.03],[1:Nz],Air);
-AddPattern(D,'Pyramid',[0.03,0.03],[0.03,Inf]/2,[1:Nz],Al);
-end
 if 0
-AddPattern(D,'Pyramid',[0.03,0.03],{[0.03],Inf},[1:Nz],Air);
-AddPattern(D,Pyramid([0.03,0.03],{[0.03,Inf]/2,[0 0.03]},[1:Nz],Al,'2nd test object'));
+% AddPattern(D,'Pyramid',[0.03,0.03],[0.03],[1:Nz],Air);
+% AddPattern(D,'Pyramid',[0.03,0.03],[0.03,Inf]/2,[1:Nz],Al);
+AddPattern(D,'Pyramid',[0.03,0.03],[0.03],[1:Nz],Air);
+AddPattern(D,PyramidExt('Ellipse',[0.03,0.03],[0.03,Inf]/2,[1:Nz],Al));
+end
+if 01
+% AddPattern(D,'Pyramid',[0.03,0.03],{[0.03],Inf},[1:Nz],Air,'1st test object');
+% AddPattern(D,Pyramid([0.03,0.03],{[0.03,Inf]/2,[0 0.03]},[1:Nz],Al,'2nd test object'));
+shape2='Rectangle';
+AddPattern(D,{'PyramidExt',shape2},[0.03,0.03],{[0.03],Inf},[1:Nz],Air,'1st test object');
+AddPattern(D,PyramidExt(shape2,[0.03,0.03],{[0.03,Inf]/2,[0 0.03]},[1:Nz],Al,'2nd test object'));
+% shape2='Ellipse';
+% % % % AddPattern(D,{'PyramidExt',shape2},[0.03,0.03],{[0.03]/2,Inf},[1:Nz],Air,'1st test object');
+% AddPattern(D,PyramidExt(shape2,[0.03,0.03],{[0.03,Inf]/2/2,[0 0.03]/2/2/2/2},[1:Nz],Al,'2nd test object'));
 end
 % AddPattern(D,'Rectangle',[0.3,0.3],[0.1,0.2],1,Ag);
 % % AddPattern(D,'Triangle',[0.03*2-0,0.03+0],[0.015*2 0.015],1,Al);
