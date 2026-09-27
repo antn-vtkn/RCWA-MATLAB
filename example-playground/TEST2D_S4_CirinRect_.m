@@ -3,7 +3,8 @@
 % 1. Liu, V. & Fan, S. S4 : A free electromagnetic solver for layered periodic structures.
 % Computer Physics Communications 183, 2233–2244 (2012).
 
-addpath(genpath('.'));
+% addpath(genpath('.'));
+RCWAupdatePATH
 
 
 eps_layer=12;

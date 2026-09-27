@@ -1,9 +1,9 @@
-classdef Material < handle
+classdef Material < NamedObject & handle
     % Manipulate er and ur for the material of caculation
     % Function inculde Plotn--plot the reflective index, Selectn--select
     % the reflective index which will be used.
     properties
-        MaterialName char
+        MaterialName char %old syntax
         n
         er
         ur
@@ -12,27 +12,48 @@ classdef Material < handle
     end
     
     methods 
-        function Mat = Material(material,varargin)
+        function Mat = Material(material,matprops)
+            narginchk(1,2);
+            
+            Mat=Mat@NamedObject(material);
             Mat.MaterialName = material;
             if nargin == 1
-                filename = strcat(Mat.MaterialName,'.txt');
-                Mat.n = dlmread(filename);
-                re_n = Mat.n(:,2);
-                im_n = Mat.n(:,3);
-                Mat.n(:,2) = conj(complex(re_n,im_n));
-                Mat.n(:,3) = [];
-                Mat.er = horzcat(Mat.n(:,1),Mat.n(:,2).^2);   %permittivity of device
-                Mat.ur = horzcat(Mat.n(:,1),ones(numel(Mat.n)/2,1)); 
+                filename = strcat(material,'.txt');  %two, three, or 5 columns
+                if ~exist(filename,'file')
+                    error(['File with ' material ' properties not found'])
+                end
+                try
+                    Mat.n = dlmread(filename);
+                catch
+                    error(['Error reading file' filename])
+                end
+                if size(Mat.n,2)==3
+%                     re_n = Mat.n(:,2);
+%                     im_n = Mat.n(:,3);
+%                     Mat.n(:,2) = conj(complex(re_n,im_n));
+                    Mat.n = [Mat.n(:,1) Mat.n(:,2)-1i*Mat.n(:,3)];
+                end
+                switch size(Mat.n,2)
+                    case 2
+                        Mat.er = [Mat.n(:,1) Mat.n(:,2).^2];   %permittivity of the material
+                        Mat.ur = [Mat.n(:,1) ones(size(Mat.n,1),1) ];   %permeability of the material
+                    case 5
+                        Mat.er = [Mat.n(:,1) Mat.n(:,2)-1i*Mat.n(:,3)];
+                        Mat.ur = [Mat.n(:,1) Mat.n(:,4)-1i*Mat.n(:,5)];
+                        Mat.n = [Mat.n(:,1) sqrt(Mat.er(:,2)*Mat.ur(:,2))];
+                   otherwise
+                        error('Wrong matprops input')
+                end
             
             
-            elseif nargin == 2
-                if numel(varargin{1}) == 1
-                    Mat.n = varargin{1};
+            elseif nargin == 2  %only scalar values are considered here 
+                if numel(matprops) == 1
+                    Mat.n = matprops;
                     Mat.er = Mat.n^2;
                     Mat.ur = 1;
-                elseif numel(varargin{1}) == 2
-                Mat.er = varargin{1}(1,1);
-                Mat.ur = varargin{1}(1,2);
+                elseif numel(matprops) == 2
+                Mat.er = matprops(1);
+                Mat.ur = matprops(2);
                 Mat.n = sqrt(Mat.er*Mat.ur);
                 end
                 

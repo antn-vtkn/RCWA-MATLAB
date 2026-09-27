@@ -2,7 +2,8 @@
 % 这里和Python的结果进行对比：来自github仓库，https://github.com/zhaonat/Rigorous-Coupled-Wave-Analysis
 % 用来对比的源Python代码地址：https://github.com/zhaonat/Rigorous-Coupled-Wave-Analysis/blob/master/RCWA_1D_examples/1D_Grating_Gaylord_TE.py
 
-addpath(genpath('.'));
+% addpath(genpath('.'));
+RCWAupdatePATH
 
 eps_layer=3.48^2;
 width=0.3*0.7;
@@ -26,7 +27,7 @@ AddLayer(Dev,Air,d,numz);
 AddPattern(Dev,'Rectangle',[period/2,period*8/2],[width width],1,mid_layer);
 % Run Simulations
 RecordDiffOrder(Simul);
-RCWARun(Simul,S,Dev)
+RCWARun(Simul,S,Dev,0/0)
 PlotRT(Simul)
 
 saveas(gcf,'./figures/TEST1D_Python_1DGrating_.png');

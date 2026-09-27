@@ -1,4 +1,4 @@
-classdef Device < handle
+classdef Device < NamedObject & handle
     % device is the class for constucting the whole device
     % functions includ: AddLayer, BuildDevice, CylinderPatternDevice,
     % RectanglePatternDevice,ConvDevice, ShowLayer
@@ -6,7 +6,7 @@ classdef Device < handle
     properties (SetAccess = protected)
         xydimension             % dimension of the device format [x,y]
         length                  % length of each layer
-        material                % material of each layer
+        material Material           % material of each layer
         idimension              % imaginary dimension of the layer format [Nx,Ny],
                                 % Nx:number of point along x in real-space grid Ny:number 
                                 % of point along y in real-space grid
@@ -14,7 +14,7 @@ classdef Device < handle
         PQR                     % number of spatial harmonics along x and y (HAS TO BE ODD NUM)
         K1                      % lattice vectors in reciprocal space
         K2
-        Pattern cell            % patterns on the substract
+        Pattern PatternShape            % patterns on the substract
         URC                     % caculated convolution matrix of permittivity of the device
         ERC                     % caculated convolution matrix of permeability of the device
         iERC                    % caculated convolution matrix of inverse permeability of the device for calculation with improveConvergenceE; works well for K1~=0; K2==0
@@ -33,10 +33,13 @@ classdef Device < handle
     end
 
     methods
-        function Dev = Device(xydimension,idimension,PQR)
+        function Dev = Device(xydimension,idimension,PQR,varargin)
         % Purpose: Define the reflective and tranmission region of the device and period
         % Input: permeability and permittivity in reflection and transmission region, and period
         % The xydimension and idimension should be proportional
+            narginchk(3,4);
+            
+            Dev=Dev@NamedObject(varargin{:});
             if numel(xydimension) == 2 && numel(idimension) == 2 &&all(abs(idimension(:)./PQR(:))>=(2-(PQR(:)==1)))
                 Dev.xydimension = abs(xydimension(:)');
                 Dev.idimension = abs(idimension(:)');
@@ -57,14 +60,14 @@ classdef Device < handle
         
         function AddLayer(Dev,material,length,ilayer)
         % Purpose define properties of each layer for the device
-            Dev.material{end+1} = material;
+            Dev.material(end+1) = material;
             Dev.length(end+1) = length;
             Dev.ilayer(end+1) = ilayer;
         end
         
         % Added by TZH
         % To handle the multi-layer material by hands
-        function AddMaterial_Mannual(Dev,ER,UR,d)       %this placeholder is for historical reasons
+        function AddMaterial_Mannual(Dev,ER,UR,d)       %this patch is for compatibility
           AddMaterial_Manual(Dev,ER,UR,d);
         end
         function AddMaterial_Manual(Dev,ER,UR,d)
@@ -77,38 +80,33 @@ classdef Device < handle
         end
 
 
-        function AddPattern(Dev,shape,center,size,nlayer,material)
+        function AddPattern(Dev,shape,varargin)
             % Purpose: add different paterns on specific layers
-
-            switch shape
-                case 'Cylinder'
-                    radius = size;
-                    Dev.Pattern = [Dev.Pattern,{Cylinder(center,radius,nlayer,material)}];
-                case 'Ellipse'
-                    radius = size;
-                    Dev.Pattern = [Dev.Pattern,{Ellipse(center,radius,nlayer,material)}];
-                case 'Rectangle'
-                    rectxy = size;
-                    Dev.Pattern = [Dev.Pattern,{Rectangle(center,rectxy,nlayer,material)}];
-                case 'Triangle'
-                    SideLength = size;
-                    Dev.Pattern = [Dev.Pattern,{Triangle(center,SideLength,nlayer,material)}];
-                case 'Pyramid'
-                    rectxy = size;
-                    Dev.Pattern = [Dev.Pattern,{Pyramid(center,rectxy,nlayer,material)}];
+          narginchk(2,6);
+          switch nargin
+            case 2
+              Dev.Pattern = [Dev.Pattern,(shape)];  %pass the object directly here
+            case 6
+              switch shape %this case contains old syntax for compatibility
+                case PatternShape.EligibleShapes2Dext
+                    Dev.Pattern = [Dev.Pattern,(feval(str2func(shape),varargin{:}))];
                 otherwise
                 error('Please Check your spell.');
-            end
+              end
+            otherwise
+              error('Please provide either Pattern handle or proper inputs for it');
+          end
         end
         
-        function BuildLayer(Dev,varargin)
+        function BuildLayer(Dev,waveindices)
             % Purpose: assign er and ur to different layers
             % Input: object
             % Output: constructed er and ur
             % INITIALIZE LAYERS TO er AND ur
+            narginchk(1,2);
+            
             if nargin == 2
-                wavelengthNumbers=varargin{1};
-                Nla=numel(wavelengthNumbers);
+                Nla=numel(waveindices);
                 mtxsize=[Dev.idimension(1),Dev.idimension(2),sum(Dev.ilayer),Nla];
                 Dev.ER = ones(mtxsize);
                 Dev.UR = ones(mtxsize);
@@ -116,13 +114,13 @@ classdef Device < handle
                 low = 1;
                 for n = 1:numel(Dev.ilayer)
                     high = sum(Dev.ilayer(1:n));
-                    if numel(Dev.material{n}.er) == 1 && numel(Dev.material{n}.ur) == 1
-                        Dev.ER(:,:,low:high,:) = Dev.material{n}.er ; 
-                        Dev.UR(:,:,low:high,:) = Dev.material{n}.ur ; 
+                    if numel(Dev.material(n).er) == 1 && numel(Dev.material(n).ur) == 1
+                        Dev.ER(:,:,low:high,:) = Dev.material(n).er ; 
+                        Dev.UR(:,:,low:high,:) = Dev.material(n).ur ; 
                     else
                         mtxsize(3)=Dev.ilayer(n);
-                        Dev.ER(:,:,low:high,wavelengthNumbers) = ones(mtxsize).*shiftdim( Dev.material{n}.er(wavelengthNumbers,2) ,-3);
-                        Dev.UR(:,:,low:high,wavelengthNumbers) = ones(mtxsize).*shiftdim( Dev.material{n}.ur(wavelengthNumbers,2) ,-3); 
+                        Dev.ER(:,:,low:high,waveindices) = ones(mtxsize).*shiftdim( Dev.material(n).er(waveindices,2) ,-3);
+                        Dev.UR(:,:,low:high,waveindices) = ones(mtxsize).*shiftdim( Dev.material(n).ur(waveindices,2) ,-3); 
                     end
                     low = high+1;
                 end
@@ -132,24 +130,26 @@ classdef Device < handle
                 low = 1;
                 for n = 1:numel(Dev.ilayer)
                     high = sum(Dev.ilayer(1:n));
-                    Dev.ER(:,:,low:high) = Dev.material{n}.er ; 
-                    Dev.UR(:,:,low:high) = Dev.material{n}.ur ; 
+                    Dev.ER(:,:,low:high) = Dev.material(n).er ; 
+                    Dev.UR(:,:,low:high) = Dev.material(n).ur ; 
                     low = high+1;    
                 end
             end
             InvalidateConvMtx(Dev);
         end
         
-        function BuildPattern(Dev,varargin)
+        function BuildPattern(Dev,waveindices)
             % Purpose: build different patterns on the device
             % Usage: The function will take the pattern object out and compute the
             % ER and UR in its object and transfer the data back. The
             % function here will handle the er and ur 
+            narginchk(1,2);
+            
             for n = 1:numel(Dev.Pattern)
-                if numel(Dev.Pattern{n}.er) == 1
-                    BuildPattern(Dev.Pattern{n},Dev);
+                if numel(Dev.Pattern(n).material.er) == 1
+                    BuildPattern(Dev.Pattern(n),Dev);
                 else
-                    BuildPattern(Dev.Pattern{n},Dev,varargin{1});
+                    BuildPattern(Dev.Pattern(n),Dev,waveindices);
                 end
             end  
             InvalidateConvMtx(Dev);
@@ -260,12 +260,18 @@ classdef Device < handle
                    ERvarm = max(max(abs( ERvarm ),[],1),[],2)/mean(mean(ERvar2,1),2);
                    if abs(ERvarm)<varTol
                      Dev.ERC(:,:,n,iLa) = Dev.ERC(:,:,n,iLa-1);
+                     if Dev.improveConvergenceE
+                         Dev.iERC(:,:,n,iLa) = Dev.iERC(:,:,n,iLa-1);
+                     end
                      continue
                    end
                    ERvarm=ERvar2-ERvar(:,:,1,1);
                    ERvarm = max(max(abs( ERvarm ),[],1),[],2)/mean(mean(ERvar2,1),2);
                    if abs(ERvarm)<varTol
                      Dev.ERC(:,:,n,iLa) = Dev.ERC(:,:,n,1);
+                     if Dev.improveConvergenceE
+                         Dev.iERC(:,:,n,iLa) = Dev.iERC(:,:,n,1);
+                     end
                      continue
                    end
                  end
@@ -307,24 +313,25 @@ classdef Device < handle
              % Input: nlayer--the layer which will be shown
            if nargin<3, nLa=1; end
            onepage=1;
-           for ii=0:1
-             titlestr=[' image of layer: ', num2str(nlayer) ' at wavelength: ' num2str(nLa)];
+           for jlayer=nlayer
+            for itab=0:1
+             titlestr=[' image of layer: ', num2str(jlayer) ' at wavelength: ' num2str(nLa)];
 %              title(titlestr);
-             totheright=ii&&onepage;
+             totheright=itab&&onepage;
              if ~totheright, figure('Name',titlestr); end
 
              for icol=1:2
                  if icol==1
-                     vv=Dev.ER(:,:,nlayer,nLa)';
+                     vv=Dev.ER(:,:,jlayer,nLa)';
                      valuestr='ER';
                  elseif icol==2
-                     vv=Dev.UR(:,:,nlayer,nLa)';
+                     vv=Dev.UR(:,:,jlayer,nLa)';
                      valuestr='UR';
                  else
                      vv=nan+1i*nan;
                      valuestr='#';
                  end
-                 if ii, vv = fftshift(fft2(vv)) / numel(vv); end
+                 if itab, vv = fftshift(fft2(vv)) / numel(vv); end
 
                  for irow=1:2
                      ncols=2+2*~~onepage;
@@ -341,7 +348,7 @@ classdef Device < handle
                      end
                      imagesc(v);
                      titlestr=[partstr '(' valuestr ')'];
-                     if ii, titlestr=['Fourier[' titlestr ']']; end
+                     if itab, titlestr=['Fourier[' titlestr ']']; end
                      title(titlestr)
                      xlabel('x (\mum)');
                      ylabel('y (\mum)');
@@ -353,23 +360,25 @@ classdef Device < handle
                      colorbar;
                  end
              end
+            end
            end
          end
          
          function ShowConvLayer(Dev,nlayer,nLa)
              % Purpose: show certain layer of builded device
              % Input: nlayer--the layer which will be shown
-             if nargin<3, nLa=1; end
-             titlestr=[' image of layer: ', num2str(nlayer) ' at wavelength: ' num2str(nLa)];
+           if nargin<3, nLa=1; end
+           for jlayer=nlayer
+             titlestr=[' image of layer: ', num2str(jlayer) ' at wavelength: ' num2str(nLa)];
 %              title(titlestr);
              figure('Name',titlestr);
              titlestr='';
              for icol=1:2
                  if icol==1
-                     vv=Dev.ERC(:,:,nlayer,nLa)';
+                     vv=Dev.ERC(:,:,jlayer,nLa)';
                      valuestr='ER';
                  elseif icol==2
-                     vv=Dev.URC(:,:,nlayer,nLa)';
+                     vv=Dev.URC(:,:,jlayer,nLa)';
                      valuestr='UR';
                  else
                      vv=nan+1i*nan;
@@ -396,6 +405,7 @@ classdef Device < handle
                      colorbar;
                  end
              end
+           end
          end
 
          

@@ -1,7 +1,8 @@
 % 用来Benchmark代码的例子：https://github.com/edmundsj/rcwa
 % 这�?�一个多层介质，理论上不需要RCWA方法。
 
-addpath(genpath('.'));
+% addpath(genpath('.'));
+RCWAupdatePATH
 
 
 n1=3.5;

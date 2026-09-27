@@ -1,4 +1,4 @@
-classdef RCWA < handle
+classdef RCWA < NamedObject & handle
     properties(SetAccess=protected)
         ShowProcess             % show the process of the simulation
         BlurCoef = 0          % blur device to accelerate the caculation
@@ -12,8 +12,8 @@ classdef RCWA < handle
         T
         Ref_order               % reflection in each order
         Trn_order               % transmission in each order
-        source                  % source of the simulation
-        device                  % device of the simulation
+        source Source                 % source of the simulation
+        device Device                 % device of the simulation
         
         kzMin                   % for diagnostics
     end
@@ -36,9 +36,13 @@ classdef RCWA < handle
     end
     
     methods
-        function ObjRCWA = RCWA(referur,trnerur,ShowProcess)
+        function ObjRCWA = RCWA(referur,trnerur,ShowProcess,varargin)
             % Purpose: Define object RCWA
             % Input: the number of spatial harmonics along x and y (HAS TO BE ODD NUM)
+            narginchk(3,4);
+            
+            ObjRCWA=ObjRCWA@NamedObject(varargin{:});
+            PrefixName(ObjRCWA,'RCWA');
             ObjRCWA.referur = referur;
             ObjRCWA.trnerur = trnerur;
             ObjRCWA.ShowProcess = ShowProcess;
