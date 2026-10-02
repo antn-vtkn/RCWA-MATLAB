@@ -12,8 +12,10 @@ classdef RCWA < handle
         T
         Ref_order               % reflection in each order
         Trn_order               % transmission in each order
-        source                  % source of the simulation
-        device                  % device of the simulation
+        source Source                 % source of the simulation
+        device Device                 % device of the simulation
+        
+        kzMin                   % for diagnostics
     end
     
     properties 
@@ -81,13 +83,14 @@ classdef RCWA < handle
            ObjRCWA.RecordDifOrder = 1;
         end
         
-        function RCWARun(ObjRCWA,source,device,field)
+        function RCWARun(ObjRCWA,source,device,field,Nparallel)
             if ObjRCWA.ShowProcess == 1
                 h = waitbar(0,'1','Name','RCWA Caculating...',...
                     'CreateCancelBtn',...
                     'setappdata(gcbf,''canceling'',1)');
                 setappdata(h,'canceling',0)
             end
+            if nargin<5, Nparallel=Inf; end
             
             ObjRCWA.source = source;
             ObjRCWA.device = device;
@@ -130,6 +133,7 @@ classdef RCWA < handle
 %                 x_k = size(device.PQR);
                 Ref_order_ = zeros(PQR(1),PQR(2),NLAM,PQR(3));            % record refection in each order
                 Trn_order_ = Ref_order_;            % record transmission in each order
+                Inc_order_ = Ref_order_;            % record incidence in each order
             end
 %             if ObjRCWA.RecordField == 1             % initialize Filed object to be prepared to record field
 %                 LayerNum = sum(ObjRCWA.device.ilayer);
@@ -142,17 +146,23 @@ classdef RCWA < handle
 %             end
 % %                 ObjRCWA.R = nan(1,NLAM);
 % %                 ObjRCWA.T = nan(1,NLAM);
-            parfor nlam = 1 : NLAM
+            if isnan(Nparallel)
+                Nparallel=numel(gcp('nocreate'));
+                if Nparallel, Nparallel=Inf; end
+            end
+            parfor (nlam = 1 : NLAM, abs(Nparallel))
                 % Make patterns in the layer input:[center],radius,[in which ilayer],[er, ur]
-                [Ref,Trn] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam);
+                [Ref,Trn,~,~,kZMin,Inc] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam);
                 if ObjRCWA.RecordDifOrder == 1
                     Ref_order_(:,:,nlam,:) = reshape(Ref,PQR(1),PQR(2),1,PQR(3));            % record refection in each order
                     Trn_order_(:,:,nlam,:) = reshape(Trn,PQR(1),PQR(2),1,PQR(3));            % record transmission in each order
+                    Inc_order_(:,:,nlam,:) = reshape(Inc,PQR(1),PQR(2),1,PQR(3));            % record incidence in each order
                 end
                 Ref = sum(Ref,1);
                 Trn = sum(Trn,1);
                 RR(nlam,:) = 100*Ref;
                 TT(nlam,:) = 100*Trn;
+                KzMin(nlam,:)=kZMin';
                 % caculate field in device 
                 if ObjRCWA.RecordField == 1
                     if ObjRCWA.field.CoordXYZ ~= 0
@@ -166,6 +176,8 @@ classdef RCWA < handle
             end
             ObjRCWA.R = RR;
             ObjRCWA.T = TT;
+            ObjRCWA.kzMin = KzMin;
+            clear RR TT KzMin
             for nlam = 1 : NLAM
                 if ObjRCWA.ShowProcess == 1
                     waitbar(nlam/NLAM,h,'I am working, please don''t disturb me ...');
@@ -178,7 +190,8 @@ classdef RCWA < handle
             if ObjRCWA.RecordDifOrder == 1 
                 ObjRCWA.Ref_order = Ref_order_;
                 ObjRCWA.Trn_order = Trn_order_;
-                clear Ref_order_ Trn_order_
+                ObjRCWA.Inc_order = Inc_order_;
+                clear Ref_order_ Trn_order_ Inc_order_
             end
             if  ObjRCWA.ShowProcess == 1
                 delete(h)

@@ -23,10 +23,10 @@ function [R,T,varargout] = RCWAer(ObjRCWA,source,device,wavenumber)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % VERIFY NUMBER OF INPUT ARGUMENTS
-error(nargchk(4,4,nargin));
+narginchk(4,4);
 
 % VERIFY NUMBER OF OUTPUT ARGUMENTS
-error(nargchk(2,4,nargout));
+nargoutchk(2,6);
 
 %% EXTRACT PARAMETERS
 % Reflective and reflective region parameters
@@ -92,6 +92,7 @@ KzT = conj(sqrt((Trn.er2*Trn.ur2)*I0 - Kx.^2 - Ky.^2));
 
 %Caculate the P and Q in free space
 Kz0 = conj(sqrt(I0 - Kx*Kx - Ky*Ky));
+kzMin=[min( abs([diag(Kz0),diag(KzR),diag(KzT)]) ,[],1),nan]';
 Q0 = [Kx*Ky, I0-Kx*Kx; Ky*Ky-I0, -Kx*Ky];                 %eigen-modes for the electric fields in free space
 % P0 = Q0;
 % OMEGA0 = P0*Q0;
@@ -265,9 +266,11 @@ delta(ceil(NH/2),1) = 1;
 
 % Compute source feild
 E_src = [delta.*[sP(1),sQ(1)];delta.*[sP(2),sQ(2)]];
+delta = [delta,delta];
 % E_src = [sP(1)*delta;sP(2)*delta];
 if 1
- E_src=[E_src circshift(E_src,-1) circshift(E_src,1) circshift(E_src,-2) circshift(E_src,2) circshift(E_src,-3) circshift(E_src,3) circshift(E_src,-4) circshift(E_src,4) circshift(E_src,-5) circshift(E_src,5)];
+ E_src=[E_src circshift(E_src,-1,1) circshift(E_src,1,1) circshift(E_src,-2,1) circshift(E_src,2,1) circshift(E_src,-3,1) circshift(E_src,3,1) circshift(E_src,-4,1) circshift(E_src,4,1) circshift(E_src,-5,1) circshift(E_src,5,1)];
+ delta=[delta circshift(delta,-1,1) circshift(delta,1,1) circshift(delta,-2,1) circshift(delta,2,1) circshift(delta,-3,1) circshift(delta,3,1) circshift(delta,-4,1) circshift(delta,4,1) circshift(delta,-5,1) circshift(delta,5,1)];
 end
 
 % Compute source modal coefficients
@@ -292,13 +295,21 @@ Z_ref = -Kz_ref\(Kx*X_ref + Ky*Y_ref);      %div(E)==0
 Z_trn = -Kz_trn\(Kx*X_trn + Ky*Y_trn);
 
 % Caculate Reflected and Tranmitted power
-R = real(-Kz_ref/kinc(3))*(abs(X_ref).^2+abs(Y_ref).^2+abs(Z_ref).^2);
-T = real((Ref.ur1/Trn.ur2)*(Kz_trn/kinc(3)))*(abs(X_trn).^2+abs(Y_trn).^2+abs(Z_trn).^2);
+R = real(diag(-Kz_ref)).*real(1./sum(-Kz_ref*delta,1)).*(abs(X_ref).^2+abs(Y_ref).^2+abs(Z_ref).^2);%%kinc(3) is wrong for nonzero orders; polarization is wrong in general as well (ok for TE in a TC amd meh for TM in a TC)
+T = real((Ref.ur1/Trn.ur2)*diag(Kz_trn)).*real(1./sum(-Kz_ref*delta,1)).*(abs(X_trn).^2+abs(Y_trn).^2+abs(Z_trn).^2);
+% R = real(-Kz_ref/kinc(3))*(abs(X_ref).^2+abs(Y_ref).^2+abs(Z_ref).^2);
+% T = real((Ref.ur1/Trn.ur2)*(Kz_trn/kinc(3)))*(abs(X_trn).^2+abs(Y_trn).^2+abs(Z_trn).^2);
 if nargout>=3
     varargout{1}=E_ref;
 end
 if nargout>=4
     varargout{2}=E_trn;
+end
+if nargout>=5
+    varargout{3}=kzMin;
+end
+if nargout>=6
+    varargout{4}=E_src;
 end
 %% Record parameters for caculating field in the device
 
