@@ -29,7 +29,7 @@ classdef Source < handle
         %        polarization -- polarization of incident, constructed as
         %        array
                  s.wavelength = wavelength *  RCWA.nanometers;
-                 if numel(angle)==1, angle(2)=0; end
+                 if isscalar(angle), angle(2)=0; end
                  s.angle = angle*RCWA.degrees;
                  s.polarization = polarization;
                  if nargin<4, mountType=1; end
@@ -151,11 +151,12 @@ classdef Source < handle
                 
         end  
         
-        function [sP,sQ] = sP(s,wavelengthnum,n)
+        function [sP,sQ] = sP(s,~,~)
             % caculate vector along polarizations
             % Input: the number of the wavelength
-            k0=s.sk(wavelengthnum);
-            k=k0*s.skinc(n);            %s.n0 should be enough here
+            
+            % k0=s.sk(wavelengthnum);
+            % k=k0*s.skinc(n);            %s.n0 should be enough here
 
             % Composite polarization vector 
             sP = s.polarization(1)*s.a_te_s + s.polarization(2)*s.a_tm_p;

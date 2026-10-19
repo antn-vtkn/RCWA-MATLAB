@@ -311,8 +311,8 @@ delta = [delta0,delta0];
 EOsrc=E_src;
 deltaO=delta;
 for ii=1:abs(MaxDifOrder)
- E_src=[E_src circshift(EOsrc,-ii,1) circshift(EOsrc,ii,1)];
- delta=[delta circshift(deltaO,-ii,1) circshift(deltaO,ii,1)];
+ E_src(:,4*ii+[-1:2])=[circshift(EOsrc,-ii,1) circshift(EOsrc,ii,1)];
+ delta(:,4*ii+[-1:2])=[circshift(deltaO,-ii,1) circshift(deltaO,ii,1)];
 end
 clear E0src deltaO
 

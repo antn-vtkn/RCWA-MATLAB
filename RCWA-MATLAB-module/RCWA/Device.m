@@ -124,7 +124,7 @@ classdef Device < NamedObject & handle
                 low = 1;
                 for n = 1:numel(Dev.ilayer)
                     high = sum(Dev.ilayer(1:n));
-                    if numel(Dev.material(n).er) == 1 && numel(Dev.material(n).ur) == 1
+                    if isscalar(Dev.material(n).er) && isscalar(Dev.material(n).ur)
                         Dev.ER(:,:,low:high,:) = Dev.material(n).er ; 
                         Dev.UR(:,:,low:high,:) = Dev.material(n).ur ; 
                     else
@@ -156,7 +156,7 @@ classdef Device < NamedObject & handle
             narginchk(1,2);
             
             for n = 1:numel(Dev.Pattern)
-                if numel(Dev.Pattern(n).material.er) == 1
+                if isscalar(Dev.Pattern(n).material.er)
                     BuildPattern(Dev.Pattern(n),Dev);
                 else
                     BuildPattern(Dev.Pattern(n),Dev,waveindices);

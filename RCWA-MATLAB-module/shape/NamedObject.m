@@ -2,27 +2,28 @@ classdef NamedObject <handle
     % Shape is a class to define pattern parameters of the structures on the
     % device
     properties
-        name string
+        name="@#$"
     end
     
     methods
         
         function N = NamedObject(name)
-            if nargin, N.name=name; end
+            if ~nargin, name="";  end
+            N.name=name;
         end  
         
         function PrefixName(N,prefix)
-            if ~isempty(prefix) && ~isempty(N.name) 
-                prefix=[prefix ': '];
+            if strlength(prefix) && strlength(N.name) 
+                prefix=strcat(prefix,': ');
             end
-            N.name=[prefix N.name];
+            N.name=strcat(prefix,N.name);
         end
         
         function SuffixName(N,suffix)
-            if ~isempty(suffix) && ~isempty(N.name) 
-                suffix=[' -- ' suffix];
+            if strlength(suffix) && strlength(N.name) 
+                suffix=strcat(' -- ',suffix);
             end
-            N.name=[N.name suffix];
+            N.name=strcat(N.name,suffix);
         end
 
     end

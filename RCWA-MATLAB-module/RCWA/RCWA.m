@@ -20,7 +20,7 @@ classdef RCWA < NamedObject & handle
     end
     
     properties 
-        field                   % field of the simualtion
+        field Field                  % field of the simualtion
         WhetherBuildLayer=1     % is the layer and material should be build? : If you assign the material by your self, this should be 0
         
     end
@@ -52,7 +52,7 @@ classdef RCWA < NamedObject & handle
         function ObjRCWA = UseBlurEffect(ObjRCWA,BlurCoef)
             % Purpose: open the blur effect to accelerate caculation
             % Input: blur coefficient--How many times the device will be shrinked
-            if numel(BlurCoef) == 1
+            if isscalar(BlurCoef)
                 ObjRCWA.BlurCoef = BlurCoef;
             else
                 error('BlurCoef should be a single number')
@@ -62,7 +62,7 @@ classdef RCWA < NamedObject & handle
         function ObjRCWA = UseShrinkEffect(ObjRCWA,ShrinkCoef)
             % Purpose: open the blur effect to accelerate caculation
             % Input: blur coefficient--How many times the device will be shrinked
-            if numel(ShrinkCoef) == 1
+            if isscalar(ShrinkCoef)
                 ObjRCWA.ShrinkCoef = ShrinkCoef;
             else
                 error('ShrinkCoef should be a single number')
