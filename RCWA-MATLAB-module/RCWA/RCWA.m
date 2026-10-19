@@ -88,7 +88,7 @@ classdef RCWA < NamedObject & handle
            ObjRCWA.RecordDifOrder = 1;
         end
         
-        function RCWARun(ObjRCWA,source,device,field,Nparallel)
+        function RCWARun(ObjRCWA,source,device,field,Nparallel,MaxDifOrder)
             if ObjRCWA.ShowProcess == 1
                 h = waitbar(0,'1','Name','RCWA Caculating...',...
                     'CreateCancelBtn',...
@@ -96,10 +96,11 @@ classdef RCWA < NamedObject & handle
                 setappdata(h,'canceling',0)
             end
             if nargin<5, Nparallel=Inf; end
+            if nargin<6, MaxDifOrder=0; end %all nonzero orders are currently incorrectly evaluated. Pass nonzero here only if you know what you are doing
             
             ObjRCWA.source = source;
             ObjRCWA.device = device;
-            PQR=[device.PQR(1:2),22];%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            PQR=[device.PQR(1:2),2*( 1+2*abs(MaxDifOrder) )];
             if  ObjRCWA.dispersion == 0             % deal with dispersion of the mateiral
                 if ObjRCWA.WhetherBuildLayer==1
                     BuildLayer(ObjRCWA.device);
@@ -151,19 +152,19 @@ classdef RCWA < NamedObject & handle
 %             end
 % %                 ObjRCWA.R = nan(1,NLAM);
 % %                 ObjRCWA.T = nan(1,NLAM);
-            if isnan(Nparallel)
+            if isnan(Nparallel)||isempty(Nparallel)
                 Nparallel=numel(gcp('nocreate'));
                 if Nparallel, Nparallel=Inf; end
             end
 %             for nlam = 1 : NLAM
             parfor (nlam = 1 : NLAM, abs(Nparallel))
                 % Make patterns in the layer input:[center],radius,[in which ilayer],[er, ur]
-                [Ref,Trn,~,~,kZMin,Inc] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam);
+                [Ref,Trn,~,~,kZMin,Inc] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam,MaxDifOrder);
                 if ObjRCWA.RecordDifOrder == 1
-%                     Ref_order_(:,:,nlam,:) = reshape(Ref,PQR);            % record refection in each order
-%                     Trn_order_(:,:,nlam,:) = reshape(Trn,PQR);            % record transmission in each order
-                    Ref_order_(:,:,nlam,:) = reshape(Ref,PQR(1),PQR(2),1,PQR(3));            % record refection in each order
-                    Trn_order_(:,:,nlam,:) = reshape(Trn,PQR(1),PQR(2),1,PQR(3));            % record transmission in each order
+                    Ref_order_(:,:,nlam,:) = reshape(Ref,PQR);            % record refection in each order
+                    Trn_order_(:,:,nlam,:) = reshape(Trn,PQR);            % record transmission in each order
+%                     Ref_order_(:,:,nlam,:) = reshape(Ref,PQR(1),PQR(2),1,PQR(3));            % record refection in each order
+%                     Trn_order_(:,:,nlam,:) = reshape(Trn,PQR(1),PQR(2),1,PQR(3));            % record transmission in each order
                     Inc_order_(:,:,:,nlam,:) = reshape(Inc,PQR(1),PQR(2),2,1,PQR(3));            % record incidence in each order
                 end
                 Ref = sum(Ref,1);

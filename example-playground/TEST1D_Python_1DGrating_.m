@@ -27,7 +27,7 @@ AddLayer(Dev,Air,d,numz);
 AddPattern(Dev,'Rectangle',[period/2,period*8/2],[width width],1,mid_layer);
 % Run Simulations
 RecordDiffOrder(Simul);
-RCWARun(Simul,S,Dev,0/0)
+RCWARun(Simul,S,Dev,[],0/0)
 PlotRT(Simul)
 
 saveas(gcf,'./figures/TEST1D_Python_1DGrating_.png');

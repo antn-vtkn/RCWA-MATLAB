@@ -41,24 +41,24 @@ classdef Field < handle
             end
         end
         
-        function GetLayerField(Field,XYGird,ZLayer)
+        function GetLayerField(Field,XYGrid,ZLayer)
             % This function get the layer parameters which will be caculated
-            if numel(XYGird) == 2
-                Field.GridXY(1:2) = XYGird(1:2);%what is this indexing for?
+            if numel(XYGrid) == 2
+                Field.GridXY(1:2) = XYGrid(1:2);%what is this indexing for?
             else
                 error('Check the number in the X and Y direction');
             end
             Field.LayerZ     = ZLayer;
         end
         
-        function GetGridField(Field,XYGird,Z_Gird)
+        function GetGridField(Field,XYGrid,Z_Grid)
             % This function get the grid parameters which will be caculated
-            if numel(XYGird) == 2
-                Field.GridXY(1:2) = XYGird(1:2);%what is this indexing for?
+            if numel(XYGrid) == 2
+                Field.GridXY(1:2) = XYGrid(1:2);%what is this indexing for?
             else
                 error('Check the number in the X and Y direction')
             end
-            Field.GridZ = Z_Gird;
+            Field.GridZ = Z_Grid;
         end
         
         function CaculateLayerField(Field)
@@ -66,24 +66,24 @@ classdef Field < handle
             [numLayer,Z_position] = FindLayer(Field,Field.LayerZ);
             NH = length(Field.Kx);
             Z = zeros(2*NH,2*NH);
-%             C1 = Field.W_V{1}\Field.W_V_ref*Field.C_input;          % define input C at the first layer
+%             C1 = Field.W_V{1,1}\Field.W_V_ref*Field.C_input;          % define input C at the first layer
             S_U = Field.W_V_ref*Field.C_input;                       % defint the input C in the first layer 
             if numLayer ~= 1
                 for n = 1 : numLayer-1
-                    Middle = diag(Field.LAM{n})*Field.k0*Field.L(n);
+                    Middle = diag(Field.LAM{1,n})*Field.k0*Field.L(n);
                     Elamda1 = diag(exp(-Middle));       % cacualte diangal lamda
                     Elamda2 = diag(exp( Middle)); 
                     Elamda_Diag = [Elamda1,Z;Z,Elamda2];
-                    C = Field.W_V{n}\S_U;          % define input C at the each layer
-                    S_U = Field.W_V{n}*Elamda_Diag*C;    % input for the first layer
+                    C = Field.W_V{1,n}\S_U;          % define input C at the each layer
+                    S_U = Field.W_V{1,n}*Elamda_Diag*C;    % input for the first layer
                 end
             end
-            Middle =diag(Field.LAM{numLayer})*Field.k0*Z_position;
+            Middle =diag(Field.LAM{1,numLayer})*Field.k0*Z_position;
             Elamda1 = diag(exp(-Middle));
             Elamda2 = diag(exp(Middle));
             Elamda_Diag = [Elamda1,Z;Z,Elamda2];
-            C = Field.W_V{numLayer}\S_U;
-            S_U = Field.W_V{numLayer}*Elamda_Diag*C;
+            C = Field.W_V{1,numLayer}\S_U;
+            S_U = Field.W_V{1,numLayer}*Elamda_Diag*C;
             S_x = S_U(1:NH,1);
             S_y = S_U(NH+1:2*NH,1);
             U_x = S_U(2*NH+1:3*NH,1);
@@ -141,15 +141,15 @@ classdef Field < handle
             % initilize S_U
             C_input_layer = cell(1,max(num_position_Layer(:,1)));
             % caculate the input C for each layer
-            C_input_layer{1} = S_U_C;
+            C_input_layer{1,1} = S_U_C;
             % caculate input in every layer in which will caculate the field
             for n = 1 : max(num_position_Layer(:,1))-1 
-                Middle = diag(Field.LAM{n})*Field.k0*Field.L(n);
+                Middle = diag(Field.LAM{1,n})*Field.k0*Field.L(n);
                 Elamda1 = diag(exp(-Middle));       % cacualte diangal lamda
                 Elamda2 = diag(exp( Middle));
                 Elamda_Diag = [Elamda1,Z;Z,Elamda2];
-                C = Field.W_V{n}\C_input_layer{n};          % define input C at the each layer
-                C_input_layer{n+1} = Field.W_V{n}*Elamda_Diag*C;    % input for the first layer
+                C = Field.W_V{1,n}\C_input_layer{1,n};          % define input C at the each layer
+                C_input_layer{1,n+1} = Field.W_V{1,n}*Elamda_Diag*C;    % input for the first layer
             end
             
             %initilize each layer
@@ -163,12 +163,12 @@ classdef Field < handle
             % caculate field in each layer
             for m = 1 : num_layer
                 caculated_layer = num_position_Layer(m,1);
-                Middle = diag(Field.LAM{caculated_layer})*Field.k0*num_position_Layer(m,2);
+                Middle = diag(Field.LAM{1,caculated_layer})*Field.k0*num_position_Layer(m,2);
                 Elamda1 = diag(exp(-Middle));       % cacualte diangal lamda
                 Elamda2 = diag(exp( Middle));
                 Elamda_Diag = [Elamda1,Z;Z,Elamda2];
-                C = Field.W_V{caculated_layer}\C_input_layer{caculated_layer};          % define input C at the each layer
-                S_U{m} = Field.W_V{caculated_layer}*Elamda_Diag*C;    % input for the first layer
+                C = Field.W_V{1,caculated_layer}\C_input_layer{1,caculated_layer};          % define input C at the each layer
+                S_U{m} = Field.W_V{1,caculated_layer}*Elamda_Diag*C;    % input for the first layer
                 S_x{m} = S_U{m}(1:NH,1);
                 S_y{m} = S_U{m}(NH+1:2*NH,1);
                 U_x{m} = S_U{m}(2*NH+1:3*NH,1);

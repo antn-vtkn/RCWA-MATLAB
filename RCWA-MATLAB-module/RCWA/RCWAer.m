@@ -1,4 +1,4 @@
-function [R,T,varargout] = RCWAer(ObjRCWA,source,device,wavenumber)
+function [R,T,varargout] = RCWAer(ObjRCWA,source,device,wavenumber,MaxDifOrder)
 % This function caculate the reflection and transmission 
 % Inside this function there is two sub-functions 
 % one named Dev_build construct the convolution matrices
@@ -23,8 +23,9 @@ function [R,T,varargout] = RCWAer(ObjRCWA,source,device,wavenumber)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % VERIFY NUMBER OF INPUT ARGUMENTS
-narginchk(4,4);
-
+narginchk(4,5);
+if nargin<5, MaxDifOrder=0; end %all nonzero orders are currently incorrectly evaluated. Pass nonzero here only if you know what you are doing
+            
 % VERIFY NUMBER OF OUTPUT ARGUMENTS
 nargoutchk(2,6);
 
@@ -307,10 +308,13 @@ delta0(ceil(NH/2),1) = 1;
 E_src = [delta0.*[sP(1),sQ(1)];delta0.*[sP(2),sQ(2)]];
 delta = [delta0,delta0];
 % E_src = [sP(1)*delta;sP(2)*delta];
-if 1
- E_src=[E_src circshift(E_src,-1,1) circshift(E_src,1,1) circshift(E_src,-2,1) circshift(E_src,2,1) circshift(E_src,-3,1) circshift(E_src,3,1) circshift(E_src,-4,1) circshift(E_src,4,1) circshift(E_src,-5,1) circshift(E_src,5,1)];
- delta=[delta circshift(delta,-1,1) circshift(delta,1,1) circshift(delta,-2,1) circshift(delta,2,1) circshift(delta,-3,1) circshift(delta,3,1) circshift(delta,-4,1) circshift(delta,4,1) circshift(delta,-5,1) circshift(delta,5,1)];
+EOsrc=E_src;
+deltaO=delta;
+for ii=1:abs(MaxDifOrder)
+ E_src=[E_src circshift(EOsrc,-ii,1) circshift(EOsrc,ii,1)];
+ delta=[delta circshift(deltaO,-ii,1) circshift(deltaO,ii,1)];
 end
+clear E0src deltaO
 
 % Compute source modal coefficients
 C_src = W_ref\E_src;

@@ -19,6 +19,7 @@ if ~exist(pathstr,'dir')
 end
 
 if exist(pathstr,'dir')
+  addpath(pathstr);
   addpath([pathstr 'material\']);
   addpath([pathstr 'RCWA\']);
   addpath([pathstr 'shape\']);

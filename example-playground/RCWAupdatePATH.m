@@ -1,1 +1,1 @@
-../RCWAupdatePATH.m
+run('../RCWAupdatePATH.m')
