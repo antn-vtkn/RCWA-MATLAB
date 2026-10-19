@@ -12,6 +12,7 @@ classdef RCWA < handle
         T
         Ref_order               % reflection in each order
         Trn_order               % transmission in each order
+        Inc_order               % incidence in each order
         source Source                 % source of the simulation
         device Device                 % device of the simulation
         
@@ -133,7 +134,7 @@ classdef RCWA < handle
 %                 x_k = size(device.PQR);
                 Ref_order_ = zeros(PQR(1),PQR(2),NLAM,PQR(3));            % record refection in each order
                 Trn_order_ = Ref_order_;            % record transmission in each order
-                Inc_order_ = Ref_order_;            % record incidence in each order
+                Inc_order_ = zeros(PQR(1),PQR(2),2,NLAM,PQR(3));            % record incidence in each order
             end
 %             if ObjRCWA.RecordField == 1             % initialize Filed object to be prepared to record field
 %                 LayerNum = sum(ObjRCWA.device.ilayer);
@@ -150,13 +151,16 @@ classdef RCWA < handle
                 Nparallel=numel(gcp('nocreate'));
                 if Nparallel, Nparallel=Inf; end
             end
+%             for nlam = 1 : NLAM
             parfor (nlam = 1 : NLAM, abs(Nparallel))
                 % Make patterns in the layer input:[center],radius,[in which ilayer],[er, ur]
                 [Ref,Trn,~,~,kZMin,Inc] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam);
                 if ObjRCWA.RecordDifOrder == 1
+%                     Ref_order_(:,:,nlam,:) = reshape(Ref,PQR);            % record refection in each order
+%                     Trn_order_(:,:,nlam,:) = reshape(Trn,PQR);            % record transmission in each order
                     Ref_order_(:,:,nlam,:) = reshape(Ref,PQR(1),PQR(2),1,PQR(3));            % record refection in each order
                     Trn_order_(:,:,nlam,:) = reshape(Trn,PQR(1),PQR(2),1,PQR(3));            % record transmission in each order
-                    Inc_order_(:,:,nlam,:) = reshape(Inc,PQR(1),PQR(2),1,PQR(3));            % record incidence in each order
+                    Inc_order_(:,:,:,nlam,:) = reshape(Inc,PQR(1),PQR(2),2,1,PQR(3));            % record incidence in each order
                 end
                 Ref = sum(Ref,1);
                 Trn = sum(Trn,1);
