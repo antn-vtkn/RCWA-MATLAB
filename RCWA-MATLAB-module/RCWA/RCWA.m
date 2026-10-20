@@ -131,8 +131,12 @@ classdef RCWA < NamedObject & handle
             if ObjRCWA.RecordField == 1             % initialize Filed object to be prepared to record field
                 LayerNum = sum(ObjRCWA.device.ilayer);
                 ObjRCWA.field = field;
-                ObjRCWA.field.W_V = cell(1,LayerNum);
-                ObjRCWA.field.LAM = cell(1,LayerNum);
+                
+                field(1).W_V = cell(1,LayerNum);
+                field(1).LAM = cell(1,LayerNum);
+                for ii=2:NLAM
+                    field(ii)=copy(field(1));
+                end
             end
             
             if ObjRCWA.RecordDifOrder == 1             % initialize matrix to record diffrection for each order
@@ -159,7 +163,7 @@ classdef RCWA < NamedObject & handle
 %             for nlam = 1 : NLAM
             parfor (nlam = 1 : NLAM, abs(Nparallel))
                 % Make patterns in the layer input:[center],radius,[in which ilayer],[er, ur]
-                [Ref,Trn,~,~,kZMin,Inc] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam,MaxDifOrder);
+                [Ref,Trn,~,~,kZMin,Inc,field(nlam)] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam,MaxDifOrder);
                 if ObjRCWA.RecordDifOrder == 1
                     Ref_order_(:,:,nlam,:) = reshape(Ref,PQR);            % record refection in each order
                     Trn_order_(:,:,nlam,:) = reshape(Trn,PQR);            % record transmission in each order
@@ -173,13 +177,14 @@ classdef RCWA < NamedObject & handle
                 TT(nlam,:) = 100*Trn;
                 KzMin(nlam,:)=kZMin';
                 % caculate field in device 
-                if ObjRCWA.RecordField == 1
-                    if ObjRCWA.field.CoordXYZ ~= 0
-                        ObjRCWA.field.CaculatePointField
-                    elseif ObjRCWA.field.LayerZ ~= 0
-                        ObjRCWA.field.CaculateLayerField
-                    elseif sum(ObjRCWA.field.GridZ) ~= 0
-                        ObjRCWA.field.CaculateGridField;
+                if ObjRCWA.RecordField
+%                     field(nlam)=copy(Fld);
+                    if field(nlam).CoordXYZ ~= 0
+                        field(nlam).CaculatePointField
+                    elseif field(nlam).LayerZ ~= 0
+                        field(nlam).CaculateLayerField
+                    elseif sum(field(nlam).GridZ) ~= 0
+                        field(nlam).CaculateGridField;
                     end
                 end
             end
@@ -187,7 +192,19 @@ classdef RCWA < NamedObject & handle
             ObjRCWA.T = TT;
             ObjRCWA.kzMin = KzMin;
             clear RR TT KzMin
+            
+            ObjRCWA.field=field;
+            
             for nlam = 1 : NLAM
+%                 if ObjRCWA.RecordField == 1
+%                     if field(nlam).CoordXYZ ~= 0
+%                         field(nlam).CaculatePointField
+%                     elseif field(nlam).LayerZ ~= 0
+%                         field(nlam).CaculateLayerField
+%                     elseif sum(field(nlam).GridZ) ~= 0
+%                         field(nlam).CaculateGridField;
+%                     end
+%                 end
                 if ObjRCWA.ShowProcess == 1
                     waitbar(nlam/NLAM,h,'I am working, please don''t disturb me ...');
                     if getappdata(h,'canceling')

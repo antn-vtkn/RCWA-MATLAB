@@ -53,8 +53,9 @@ AddPattern(D,'Cylinder',[0.03,0.03],0.02,1,Air);
 D.BuildLayer(1);
 D.BuildPattern(1);
 ShowLayer(D,1);
-% % % ShowConvLayer(D,1);
-% rtyweywtywwtrye
+ConvDevice(D);
+ShowConvLayer(D,1);
+rtyweywtywwtrye
 toc
 tic
 % try

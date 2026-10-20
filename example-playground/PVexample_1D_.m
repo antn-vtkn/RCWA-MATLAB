@@ -36,8 +36,8 @@ AddPattern(D,'Rectangle',[0.3*0.25,0.2],[0.3*0.5,0.4],1,Air);
 D.BuildLayer(1);
 D.BuildPattern(1);
 ShowLayer(D,1);
-% ConvDevice(D);
-% ShowConvLayer(D,1);
+ConvDevice(D);
+ShowConvLayer(D,1);
 rtyweywtywwtrye
 toc
 % Simulation

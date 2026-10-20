@@ -25,9 +25,9 @@ function [R,T,varargout] = RCWAer(ObjRCWA,source,device,wavenumber,MaxDifOrder)
 % VERIFY NUMBER OF INPUT ARGUMENTS
 narginchk(4,5);
 if nargin<5, MaxDifOrder=0; end %all nonzero orders are currently incorrectly evaluated. Pass nonzero here only if you know what you are doing
-            
+
 % VERIFY NUMBER OF OUTPUT ARGUMENTS
-nargoutchk(2,6);
+nargoutchk(2,7);
 
 %% EXTRACT PARAMETERS
 % Reflective and reflective region parameters
@@ -39,6 +39,10 @@ Trn.er2 = ObjRCWA.trnerur(1);                         %permittivity in transmiss
 PQR = device.PQR;
 
 CondRecordField = ObjRCWA.RecordField;                %condiction of recording the field
+if CondRecordField == 1
+    field=ObjRCWA.field(wavenumber);
+end
+
 %% CACULATE DEVICE MATRICES 
 % EXTRACT PARAMETERS
 NH  = PQR(1)*PQR(2);                   %total number of spatial harmonics
@@ -164,8 +168,8 @@ for n = 1: sum(device.ilayer)
     
     % Record the parameters for reconstructe E and H field
     if CondRecordField == 1
-        ObjRCWA.field.W_V{1,n} = [W,W;-V,V];
-        ObjRCWA.field.LAM{1,n} = sparse(LAM);
+        field.W_V{1,n} = [W,W;-V,V];
+        field.LAM{1,n} = sparse(LAM);
     end
     
     % Calculate Scattering Matrix for each layer
@@ -338,10 +342,13 @@ Z_ref = -Kz_ref\(Kx*X_ref + Ky*Y_ref);      %div(E)==0, isotropic media implied
 Z_trn = -Kz_trn\(Kx*X_trn + Ky*Y_trn);
 
 % Caculate Reflected and Tranmitted power
-R = real(diag(-Kz_ref)).*real(1./sum(-Kz_ref*delta,1)).*(abs(X_ref).^2+abs(Y_ref).^2+abs(Z_ref).^2);%%kinc(3) is wrong for nonzero orders; polarization is wrong in general as well (ok for TE in a TC amd meh for TM in a TC)
-T = real((Ref.ur1/Trn.ur2)*diag(Kz_trn)).*real(1./sum(-Kz_ref*delta,1)).*(abs(X_trn).^2+abs(Y_trn).^2+abs(Z_trn).^2);
-% R = real(-Kz_ref/kinc(3))*(abs(X_ref).^2+abs(Y_ref).^2+abs(Z_ref).^2);
-% T = real((Ref.ur1/Trn.ur2)*(Kz_trn/kinc(3)))*(abs(X_trn).^2+abs(Y_trn).^2+abs(Z_trn).^2);
+if MaxDifOrder<0
+    R = real(diag(-Kz_ref)).*real(1./sum(-Kz_ref*delta,1)).*(abs(X_ref).^2+abs(Y_ref).^2+abs(Z_ref).^2);%%kinc(3) is wrong for nonzero orders; polarization is wrong in general as well (ok for TE in a TC amd meh for TM in a TC)
+    T = real((Ref.ur1/Trn.ur2)*diag(Kz_trn)).*real(1./sum(-Kz_ref*delta,1)).*(abs(X_trn).^2+abs(Y_trn).^2+abs(Z_trn).^2);
+else
+    R = real(-Kz_ref/kinc(3))*(abs(X_ref).^2+abs(Y_ref).^2+abs(Z_ref).^2);
+    T = real((Ref.ur1/Trn.ur2)*(Kz_trn/kinc(3)))*(abs(X_trn).^2+abs(Y_trn).^2+abs(Z_trn).^2);
+end
 if nargout>=3
     varargout{1}=E_ref;
 end
@@ -354,20 +361,23 @@ end
 if nargout>=6
     varargout{4}=E_src;
 end
+if nargout>=7
+    varargout{5}=field;
+end
 %% Record parameters for caculating field in the device
 
 % Record the parameters for reconstructe E and H field
 if CondRecordField == 1
-    ObjRCWA.field.wavenumber = wavenumber;
-    ObjRCWA.field.L = L;
-    ObjRCWA.field.xydimension = device.xydimension;
-    ObjRCWA.field.Kx = Kx;
-    ObjRCWA.field.Ky = Ky;
-    ObjRCWA.field.k0 = k0;
-    ObjRCWA.field.URC = device.URC;
-    ObjRCWA.field.ERC = device.ERC;
-    ObjRCWA.field.W_V_ref = sparse([W_ref,W_ref;-V_ref,V_ref]);
-    ObjRCWA.field.W_V_trn = sparse([W_trn,W_trn;-V_trn,V_trn]);
-    ObjRCWA.field.C_input = [C_src;C_ref];    % input for the first layer
+    field.wavenumber = wavenumber;
+    field.L = L;
+    field.xydimension = device.xydimension;
+    field.Kx = Kx;
+    field.Ky = Ky;
+    field.k0 = k0;
+    field.URC = device.URC;
+    field.ERC = device.ERC;
+    field.W_V_ref = sparse([W_ref,W_ref;-V_ref,V_ref]);
+    field.W_V_trn = sparse([W_trn,W_trn;-V_trn,V_trn]);
+    field.C_input = [C_src;C_ref];    % input for the first layer
 end
     

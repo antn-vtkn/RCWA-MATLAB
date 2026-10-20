@@ -30,19 +30,22 @@ AddPattern(Dev,'Cylinder',[width/2,width/2],radius,1,Air);
 
 % Activate the field recorder
 ConstructField(Simul);% 用于记录场
-XYGrid=[20 10];
-XYGrid=[200 100];
+XYGrid=[20 10]*10;
 %% To obtain the field in specific plane
 % Thefield grid
 field=Field();
 ZLayer=0.1;
 GetLayerField(field,XYGrid,ZLayer);
-RCWARun(Simul,S,Dev,field,0);
-ShowLayerField(field);
+RCWARun(Simul,S,Dev,field,01);
+ShowLayerField(Simul.field);
+ShowLayerField(Simul.field,'Ey');
+ShowLayerField(Simul.field,'H');
 
 %% To obatin the field in xyz grid
 field2=Field();
 Z_Grid=linspace(0,0.5,10);
 GetGridField(field2,XYGrid,Z_Grid);
-RCWARun(Simul,S,Dev,field2,0);
-ShowGridField(field2);
+RCWARun(Simul,S,Dev,field2,01);
+ShowGridField(Simul.field);
+ShowGridField(Simul.field,'Ey');
+ShowGridField(Simul.field,'H');

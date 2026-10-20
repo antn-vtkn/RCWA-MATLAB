@@ -332,10 +332,10 @@ classdef Device < NamedObject & handle
 
              for icol=1:2
                  if icol==1
-                     vv=Dev.ER(:,:,jlayer,nLa)';
+                     vv=Dev.ER(:,:,jlayer,nLa);
                      valuestr='ER';
                  elseif icol==2
-                     vv=Dev.UR(:,:,jlayer,nLa)';
+                     vv=Dev.UR(:,:,jlayer,nLa);
                      valuestr='UR';
                  else
                      vv=nan+1i*nan;
@@ -347,10 +347,10 @@ classdef Device < NamedObject & handle
                      ncols=2+2*~~onepage;
                      subplot(2,ncols,ncols*(irow-1)+2*totheright+icol);
                      if irow==1
-                         v=real(vv);
+                         v=real(vv).';
                          partstr='Re';
                      elseif irow==2
-                         v=imag(vv);
+                         v=-imag(vv).';
                          partstr='Im';
                      else
                          v=nan;
@@ -385,10 +385,10 @@ classdef Device < NamedObject & handle
              titlestr='';
              for icol=1:2
                  if icol==1
-                     vv=Dev.ERC(:,:,jlayer,nLa)';
+                     vv=Dev.ERC(:,:,jlayer,nLa);
                      valuestr='ER';
                  elseif icol==2
-                     vv=Dev.URC(:,:,jlayer,nLa)';
+                     vv=Dev.URC(:,:,jlayer,nLa);
                      valuestr='UR';
                  else
                      vv=nan+1i*nan;
@@ -398,18 +398,18 @@ classdef Device < NamedObject & handle
                  for irow=1:2
                      subplot(2,2,2*(irow-1)+icol);
                      if irow==1
-                         v=real(vv);
+                         v=real(vv).';
                          partstr='Re';
                      elseif irow==2
-                         v=imag(vv);
+                         v=-imag(vv).';
                          partstr='Im';
                      else
                          v=nan;
                          partstr='#';
                      end
                      imagesc(v);
-                     xlabel('N_x');
-                     ylabel('N_y');
+                     xlabel('N_x_y');
+                     ylabel('N_x_y');
                      title([partstr '(Convolution of ' valuestr ')' titlestr])
                      axis equal tight;
                      colorbar;

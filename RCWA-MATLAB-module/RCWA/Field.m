@@ -1,4 +1,4 @@
-classdef Field < handle
+classdef Field < matlab.mixin.Copyable % & handle
     % This object will record the data which will be used to caculate
     % the field inside the device
     % Functions will be used to caculate field inside the device
@@ -19,6 +19,8 @@ classdef Field < handle
     end
     properties (SetAccess = protected)
         CoordXYZ
+        GridX
+        GridY
         GridXY
         LayerZ
         GridZ
@@ -35,7 +37,9 @@ classdef Field < handle
             % This function get the parameters which will be caculated
             % later 
             if numel(CoordinateXYZ) == 3
-                Field.CoordXYZ(1:3) = CoordinateXYZ(1:3);%what is this indexing for?
+              for ii=1:numel(Field)
+                Field(ii).CoordXYZ(1:3) = CoordinateXYZ(1:3);%what is this indexing for?
+              end
             else
                 error('Check the number of the Coordinate')
             end
@@ -44,25 +48,31 @@ classdef Field < handle
         function GetLayerField(Field,XYGrid,ZLayer)
             % This function get the layer parameters which will be caculated
             if numel(XYGrid) == 2
-                Field.GridXY(1:2) = XYGrid(1:2);%what is this indexing for?
+              for ii=1:numel(Field)
+                Field(ii).GridXY(1:2) = XYGrid(1:2);%what is this indexing for?
+                Field(ii).LayerZ     = ZLayer;
+              end
             else
                 error('Check the number in the X and Y direction');
             end
-            Field.LayerZ     = ZLayer;
         end
         
         function GetGridField(Field,XYGrid,Z_Grid)
             % This function get the grid parameters which will be caculated
             if numel(XYGrid) == 2
-                Field.GridXY(1:2) = XYGrid(1:2);%what is this indexing for?
+              for ii=1:numel(Field)
+                Field(ii).GridXY(1:2) = XYGrid(1:2);%what is this indexing for?
+                Field(ii).GridZ = Z_Grid;
+              end
             else
                 error('Check the number in the X and Y direction')
             end
-            Field.GridZ = Z_Grid;
         end
         
-        function CaculateLayerField(Field)
+        function CaculateLayerField(FieldArr)
             % This function caculate the field in grid
+          for ii=1:numel(FieldArr)
+            Field=FieldArr(ii);       %Remember, this is a handle class!!!
             [numLayer,Z_position] = FindLayer(Field,Field.LayerZ);
             NH = length(Field.Kx);
             Z = zeros(2*NH,2*NH);
@@ -88,6 +98,7 @@ classdef Field < handle
             S_y = S_U(NH+1:2*NH,1);
             U_x = S_U(2*NH+1:3*NH,1);
             U_y = S_U(3*NH+1:4*NH,1);
+            clear S_U
             S_z = 1i*Field.URC(:,:,numLayer)\(Field.Kx*U_y - Field.Ky*U_x);
             U_z = 1i*Field.ERC(:,:,numLayer)\(Field.Kx*S_y - Field.Ky*S_x);
             
@@ -104,28 +115,40 @@ classdef Field < handle
             ya = [0:Ny-1]*dy;                      %y axis vector
             ya = ya - mean(ya);                    %center y axis at zero
             % initilize E and H
-            IniZ = zeros(Nx,Ny);
-            Field.Ex = IniZ;
-            Field.Ey = IniZ;
-            Field.Ez = IniZ;
-            Field.Hx = IniZ;
-            Field.Hy = IniZ;
-            Field.Hz = IniZ;
+%             IniZ = zeros(Nx,Ny);
+%             Field.Ex = IniZ;
+%             Field.Ey = IniZ;
+%             Field.Ez = IniZ;
+%             Field.Hx = IniZ;
+%             Field.Hy = IniZ;
+%             Field.Hz = IniZ;
             
-            for m = 1:numel(ya)
-                for n = 1:numel(xa)
-                    Phase = exp(-1i*(diag(Field.Kx)*xa(n)+diag(Field.Ky)*ya(m)));
-                    Field.Ex(n,m) = sum(S_x.*Phase);
-                    Field.Ey(n,m) = sum(S_y.*Phase);
-                    Field.Ez(n,m) = sum(S_z.*Phase);
-                    Field.Hx(n,m) = sum(U_x.*Phase);
-                    Field.Hy(n,m) = sum(U_y.*Phase);
-                    Field.Hz(n,m) = sum(U_z.*Phase);
-                end
-            end 
+%             for m = 1:numel(ya)
+%                 for n = 1:numel(xa)
+%                     Phase = exp(-1i*(diag(Field.Kx)*xa(n)+diag(Field.Ky)*ya(m)));
+%                     Field.Ex(n,m) = sum(S_x.*Phase);
+%                     Field.Ey(n,m) = sum(S_y.*Phase);
+%                     Field.Ez(n,m) = sum(S_z.*Phase);
+%                     Field.Hx(n,m) = sum(U_x.*Phase);
+%                     Field.Hy(n,m) = sum(U_y.*Phase);
+%                     Field.Hz(n,m) = sum(U_z.*Phase);
+%                 end
+%             end
+            Phase = exp(-1i*( full(diag(Field.Kx)).*xa + full(diag(Field.Ky)).*shiftdim(ya,-1) ));
+            Field.Ex = shiftdim(sum(S_x.*Phase,1),1);
+            Field.Ey = shiftdim(sum(S_y.*Phase,1),1);
+            Field.Ez = shiftdim(sum(S_z.*Phase,1),1);
+            Field.Hx = shiftdim(sum(U_x.*Phase,1),1);
+            Field.Hy = shiftdim(sum(U_y.*Phase,1),1);
+            Field.Hz = shiftdim(sum(U_z.*Phase,1),1);
+            Field.GridX=xa;
+            Field.GridY=ya;
+         end
         end
         
-        function CaculateGridField(Field)
+        function CaculateGridField(FieldArr)
+          for ii=1:numel(FieldArr)
+            Field=FieldArr(ii);       %Remember, this is a handle class!!!
             % This function caculate field in a grid
             % since here we take count of the first reflective layer the
             % device will start from the second layer 
@@ -153,13 +176,14 @@ classdef Field < handle
             end
             
             %initilize each layer
-            S_U = cell(1,num_layer);
-            S_x = cell(1,num_layer);
-            S_y = cell(1,num_layer);
-            S_z = cell(1,num_layer);
-            U_x = cell(1,num_layer);
-            U_y = cell(1,num_layer);
-            U_z = cell(1,num_layer);
+%             S_U = cell(1,num_layer);
+%             S_x = cell(1,num_layer);
+%             S_y = cell(1,num_layer);
+%             S_z = cell(1,num_layer);
+%             U_x = cell(1,num_layer);
+%             U_y = cell(1,num_layer);
+%             U_z = cell(1,num_layer);
+            [S_x_,S_y_,S_z_,U_x_,U_y_,U_z_]=deal(zeros(NH,1,1,num_layer));
             % caculate field in each layer
             for m = 1 : num_layer
                 caculated_layer = num_position_Layer(m,1);
@@ -168,15 +192,20 @@ classdef Field < handle
                 Elamda2 = diag(exp( Middle));
                 Elamda_Diag = [Elamda1,Z;Z,Elamda2];
                 C = Field.W_V{1,caculated_layer}\C_input_layer{1,caculated_layer};          % define input C at the each layer
-                S_U{m} = Field.W_V{1,caculated_layer}*Elamda_Diag*C;    % input for the first layer
-                S_x{m} = S_U{m}(1:NH,1);
-                S_y{m} = S_U{m}(NH+1:2*NH,1);
-                U_x{m} = S_U{m}(2*NH+1:3*NH,1);
-                U_y{m} = S_U{m}(3*NH+1:4*NH,1);
-                S_z{m} = 1i*Field.URC(:,:,caculated_layer)\(Field.Kx*U_y{m} - Field.Ky*U_x{m});
-                U_z{m} = 1i*Field.ERC(:,:,caculated_layer)\(Field.Kx*S_y{m} - Field.Ky*S_x{m});
+                S_U = Field.W_V{1,caculated_layer}*Elamda_Diag*C;    % input for the first layer
+                S_x = S_U(1:NH,1);
+                S_y = S_U(NH+1:2*NH,1);
+                U_x = S_U(2*NH+1:3*NH,1);
+                U_y = S_U(3*NH+1:4*NH,1);
+                S_z_(:,1,1,m) = 1i*Field.URC(:,:,caculated_layer)\(Field.Kx*U_y - Field.Ky*U_x);
+                U_z_(:,1,1,m) = 1i*Field.ERC(:,:,caculated_layer)\(Field.Kx*S_y - Field.Ky*S_x);
+                S_x_(:,1,1,m)=S_x;
+                S_y_(:,1,1,m)=S_y;
+                U_x_(:,1,1,m)=U_x;
+                U_y_(:,1,1,m)=U_y;
             end
             clear S_U  C_input_layer;
+            clear S_x S_y U_x U_y
             
             % cacuate E and H at this layer
             Nx = Field.GridXY(1);
@@ -194,42 +223,61 @@ classdef Field < handle
 %             ya = [0:Ny-1]*dy;                      %y axis vector
 %             ya = ya - mean(ya);                    %center y axis at zero
             % initilize E and H
-            IniZ = zeros(Nx,Ny,num_layer);
-            Ex_ = IniZ;
-            Ey_ = IniZ;
-            Ez_ = IniZ;
-            Hx_ = IniZ;
-            Hy_ = IniZ;
-            Hz_ = IniZ;        
-            Kx_ = diag(Field.Kx);
-            Ky_ = diag(Field.Ky);
+            IniZ = zeros(Nx+1,Ny+1,num_layer);
+%             Ex_ = IniZ;
+%             Ey_ = IniZ;
+%             Ez_ = IniZ;
+%             Hx_ = IniZ;
+%             Hy_ = IniZ;
+%             Hz_ = IniZ;        
+%             Kx_ = full(diag(Field.Kx));
+%             Ky_ = full(diag(Field.Ky));
+            Phase = exp(-1i*( full(diag(Field.Kx)).*xa + full(diag(Field.Ky)).*shiftdim(ya,-1) ));
             % cauclate E and H field         
-            for i = 1:num_layer
-                for m = 1:numel(ya)
-                    for n = 1:numel(xa)
-                        Phase = exp(-1i*(Kx_*xa(n)+Ky_*ya(m)));
-                        Ex_(n,m,i) = sum(S_x{i}.*Phase);
-                        Ey_(n,m,i) = sum(S_y{i}.*Phase);
-                        Ez_(n,m,i) = sum(S_z{i}.*Phase);
-                        Hx_(n,m,i) = sum(U_x{i}.*Phase);
-                        Hy_(n,m,i) = sum(U_y{i}.*Phase);
-                        Hz_(n,m,i) = sum(U_z{i}.*Phase);
-                    end
-                end
-            end
-            Field.Ex = Ex_;
-            Field.Ey = Ey_;
-            Field.Ez = Ez_;
-            Field.Hx = Hx_;
-            Field.Hy = Hy_;
-            Field.Hz = Hz_;
-            clear Ex_ Ey_ Ez_ Hx_ Hy_ Hz_ IniZ
+            Field.Ex = shiftdim(sum(S_x_.*Phase,1),1);
+            Field.Ey = shiftdim(sum(S_y_.*Phase,1),1);
+            Field.Ez = shiftdim(sum(S_z_.*Phase,1),1);
+            Field.Hx = shiftdim(sum(U_x_.*Phase,1),1);
+            Field.Hy = shiftdim(sum(U_y_.*Phase,1),1);
+            Field.Hz = shiftdim(sum(U_z_.*Phase,1),1);
+            Field.GridX=xa;
+            Field.GridY=ya;
+%             for i = 1:num_layer
+%                 Ex_(:,:,i) = shiftdim(sum(S_x{i}.*Phase,1),1);
+%                 Ey_(:,:,i) = shiftdim(sum(S_y{i}.*Phase,1),1);
+%                 Ez_(:,:,i) = shiftdim(sum(S_z{i}.*Phase,1),1);
+%                 Hx_(:,:,i) = shiftdim(sum(U_x{i}.*Phase,1),1);
+%                 Hy_(:,:,i) = shiftdim(sum(U_y{i}.*Phase,1),1);
+%                 Hz_(:,:,i) = shiftdim(sum(U_z{i}.*Phase,1),1);
+% %                 for m = 1:numel(ya)
+% %                     for n = 1:numel(xa)
+% %                         Phase = exp(-1i*(Kx_*xa(n)+Ky_*ya(m)));
+% %                         Ex_(n,m,i) = sum(S_x{i}.*Phase);
+% %                         Ey_(n,m,i) = sum(S_y{i}.*Phase);
+% %                         Ez_(n,m,i) = sum(S_z{i}.*Phase);
+% %                         Hx_(n,m,i) = sum(U_x{i}.*Phase);
+% %                         Hy_(n,m,i) = sum(U_y{i}.*Phase);
+% %                         Hz_(n,m,i) = sum(U_z{i}.*Phase);
+% %                     end
+% %                 end
+%             end
+%             Field.Ex = Ex_;
+%             Field.Ey = Ey_;
+%             Field.Ez = Ez_;
+%             Field.Hx = Hx_;
+%             Field.Hy = Hy_;
+%             Field.Hz = Hz_;
+%             clear Ex_ Ey_ Ez_ Hx_ Hy_ Hz_ IniZ
+          end
         end
             
 
         
         function [numLayer,Z_position] = FindLayer(Field,depth)
             % This function will find in which layer the number is
+            if ~isscalar(Field)
+                error('Can''t work with arrays, please specify a single element');
+            end
             if depth < 0
                 error('Depth should be a positive number')
             elseif depth > sum(Field.L)
@@ -247,190 +295,134 @@ classdef Field < handle
             
         end
         
-        function ShowLayerField(Field,varargin)
+        function ShowLayerField(FieldArr,varargin)
             % Purpose: this function show field in certain layer
-            if nargin == 1
+            isindexed=nargin>1 && isnumeric(varargin{end});
+            if isindexed
+                Field=FieldArr(varargin{end});
+            else
+                Field=FieldArr;
+            end
+            if ~isscalar(Field)
+                error('Can''t work with arrays, please specify a single element');
+            end
+            if nargin-isindexed == 1
                 figure
                 subplot(231)
-                imagesc(real(Field.Ex));
-                title(['Ex at z layer ', num2str(Field.LayerZ)]);
+                plotRCWAlayerField(Field,'Ex');
                 subplot(232)
-                imagesc(real(Field.Ey));
-                title(['Ey at z layer', num2str(Field.LayerZ)]);
+                plotRCWAlayerField(Field,'Ey');
                 subplot(233)
-                imagesc(real(Field.Ez));
-                title(['Ez at z layer ', num2str(Field.LayerZ)]);
+                plotRCWAlayerField(Field,'Ez');
                 subplot(234)
-                imagesc(real(Field.Hx));
-                title(['Hx at z layer ', num2str(Field.LayerZ)]);
+                plotRCWAlayerField(Field,'Hx');
                 subplot(235)
-                imagesc(real(Field.Hy));
-                title(['Hy at z layer ', num2str(Field.LayerZ)]);
+                plotRCWAlayerField(Field,'Hy');
                 subplot(236)
-                imagesc(real(Field.Hz));
-                title(['Hz at z layer ', num2str(Field.LayerZ)]);
-            elseif nargin == 2
-                figure
+                plotRCWAlayerField(Field,'Hz');
+            elseif nargin-isindexed == 2
                 switch varargin{1}
-                    case 'Ex' 
-                        imagesc(real(Field.Ex));
-                        title(['Ex at z layer ', num2str(Field.LayerZ)]);
-                    case 'Ey'
-                        imagesc(real(Field.Ey));
-                        title(['Ey at z layer ', num2str(Field.LayerZ)]);
-                    case 'Ez'
-                        imagesc(real(Field.Ez));
-                        title(['Ez at z layer ', num2str(Field.LayerZ)]);
-                    case 'Hx'
-                        imagesc(real(Field.Hx));
-                        title(['Hx at z layer ', num2str(Field.LayerZ)]);
-                    case 'Hy'
-                        imagesc(real(Field.Hy));
-                        title(['Hy at z layer ', num2str(Field.LayerZ)]);
-                    case 'Hz'
-                        imagesc(real(Field.Hz));
-                        title(['Hz at z layer ', num2str(Field.LayerZ)]);
-                    case 'E'
+                    case {'Ex','Ey','Ez','Hx','Hy','Hz'}
+                        figure
+                        plotRCWAlayerField(Field,varargin{1});
+                    case {'E','H'}
+                        figure
                         subplot(131)
-                        imagesc(real(Field.Ex));
-                        title(['Ex at z layer ', num2str(Field.LayerZ)]);
+                        plotRCWAlayerField(Field, [varargin{1},'x']);
                         axis square;
                         subplot(132)
-                        imagesc(real(Field.Ey));
-                        title(['Ey at z layer ', num2str(Field.LayerZ)]);
+                        plotRCWAlayerField(Field, [varargin{1},'y']);
                         axis square;
                         subplot(133)
-                        imagesc(real(Field.Ez));
-                        title(['Ez at z layer ', num2str(Field.LayerZ)]);
+                        plotRCWAlayerField(Field, [varargin{1},'z']);
                         axis square;
-                    case 'H'
-                        subplot(131)
-                        imagesc(real(Field.Hx));
-                        title(['Hx at z layer ', num2str(Field.LayerZ)]);
-                        axis square;
-                        subplot(132)
-                        imagesc(real(Field.Hy));
-                        title(['Hy at z layer ', num2str(Field.LayerZ)]);
-                        axis square;
-                        subplot(133)
-                        imagesc(real(Field.Hz));
-                        title(['Hz at z layer ', num2str(Field.LayerZ)]);
-                        axis square;
+                    otherwise
+                        error('Wrong field designation')
                 end
             else
-                error('Too many input')
+                error('Wrong number of inputs')
             end
     
         end
         
-        function ShowGridField(Field,varargin)
-            if nargin == 1
+        function h=plotRCWAlayerField(Field,field)
+            if 0 %old style
+                h=imagesc(real(Field.(field)));
+            elseif 0
+                h=imagesc(Field.GridY,Field.GridX,real(Field.(field)));
+                ylabel('x'); xlabel('y');
+            else
+                if 01 %we recommend either this style or the next one
+                    h=imagesc(Field.GridX,Field.GridY,real(Field.(field)).');
+                    set(gca,'YDir','normal');
+                else
+                    h=pcolor(Field.GridX,Field.GridY,real(Field.(field)).');
+                end
+                xlabel('x'); ylabel('y');
+            end
+            title([field ' at z layer ', num2str(Field.LayerZ)]);
+%             axis square;
+        end
+        
+        function ShowGridField(FieldArr,varargin)
+            isindexed=nargin>1 && isnumeric(varargin{end});
+            if isindexed
+                Field=FieldArr(varargin{end});
+            else
+                Field=FieldArr;
+            end
+            if ~isscalar(Field)
+                error('Can''t work with arrays, please specify a single element');
+            end
+            if nargin-isindexed == 1
                 figure
                 subplot(231)
-                h = slice(real(Field.Ex),[],[],1:size(Field.Ex,3));
-                set(h, 'EdgeColor','none', 'FaceColor','interp')
-                alpha(0.5)
-                title(['Ex at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
+                plotRCWAgridField(Field,'Ex');
                 subplot(232)
-                h = slice(real(Field.Ey),[],[],1:size(Field.Ey,3));
-                set(h, 'EdgeColor','none', 'FaceColor','interp')
-                alpha(0.5)
-                title(['Ey at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
+                plotRCWAgridField(Field,'Ey');
                 subplot(233)
-                h = slice(real(Field.Ez),[],[],1:size(Field.Ez,3));
-                set(h, 'EdgeColor','none', 'FaceColor','interp')
-                alpha(0.5)
-                title(['Ez at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
+                plotRCWAgridField(Field,'Ez');
                 subplot(234)
-                h = slice(real(Field.Hx),[],[],1:size(Field.Hx,3));
-                set(h, 'EdgeColor','none', 'FaceColor','interp')
-                alpha(0.5)
-                title(['Hx at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
+                plotRCWAgridField(Field,'Hx');
                 subplot(235)
-                h = slice(real(Field.Hy),[],[],1:size(Field.Hy,3));
-                set(h, 'EdgeColor','none', 'FaceColor','interp')
-                alpha(0.5)
-                title(['Hy at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
+                plotRCWAgridField(Field,'Hy');
                 subplot(236)
-                h = slice(real(Field.Hz),[],[],1:size(Field.Hz,3));
-                set(h, 'EdgeColor','none', 'FaceColor','interp')
-                alpha(0.5)
-                title(['Hz at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
-            elseif nargin == 2
-                figure
+                plotRCWAgridField(Field,'Hz');
+            elseif nargin-isindexed == 2
                 switch varargin{1}
-                    case 'Ex'
-                        h = slice(real(Field.Ex),[],[],1:size(Field.Ex,3));
-                        set(h, 'EdgeColor','none', 'FaceColor','interp')
-                        alpha(0.5)
-                        title(['Ex at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
-                    case 'Ey'
-                        h = slice(real(Field.Ey),[],[],1:size(Field.Ey,3));
-                        set(h, 'EdgeColor','none', 'FaceColor','interp')
-                        alpha(0.5)
-                        title(['Ey at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
-                    case 'Ez'
-                        h = slice(real(Field.Ez),[],[],1:size(Field.Ez,3));
-                        set(h, 'EdgeColor','none', 'FaceColor','interp')
-                        alpha(0.5)
-                        title(['Ez at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
-                    case 'Hx'
-                        h = slice(real(Field.Hx),[],[],1:size(Field.Hx,3));
-                        set(h, 'EdgeColor','none', 'FaceColor','interp')
-                        alpha(0.5)
-                        title(['Hx at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
-                    case 'Hy'
-                        h = slice(real(Field.Hy),[],[],1:size(Field.Hy,3));
-                        set(h, 'EdgeColor','none', 'FaceColor','interp')
-                        alpha(0.5)
-                        title(['Hy at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
-                    case 'Hz'
-                        h = slice(real(Field.Hz),[],[],1:size(Field.Hz,3));
-                        set(h, 'EdgeColor','none', 'FaceColor','interp')
-                        alpha(0.5)
-                        title(['Hz at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
-                    case 'E'
+                    case {'Ex','Ey','Ez','Hx','Hy','Hz'}
+                        figure
+                        plotRCWAgridField(Field,varargin{1});
+                    case {'E','H'}
+                        figure
                         subplot(131)
-                        h = slice(real(Field.Ex),[],[],1:size(Field.Ex,3));
-                        set(h, 'EdgeColor','none', 'FaceColor','interp')
-                        alpha(0.5)
-                        title(['Ex at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
+                        plotRCWAgridField(Field, [varargin{1},'x']);
                         axis square;
                         subplot(132)
-                        h = slice(real(Field.Ey),[],[],1:size(Field.Ey,3));
-                        set(h, 'EdgeColor','none', 'FaceColor','interp')
-                        alpha(0.5)
-                        title(['Ey at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
+                        plotRCWAgridField(Field, [varargin{1},'y']);
                         axis square;
                         subplot(133)
-                        h = slice(real(Field.Ez),[],[],1:size(Field.Ez,3));
-                        set(h, 'EdgeColor','none', 'FaceColor','interp')
-                        alpha(0.5)
-                        title(['Ez at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
+                        plotRCWAgridField(Field, [varargin{1},'z']);
                         axis square;
-                    case 'H'
-                        subplot(131)
-                        h = slice(real(Field.Hx),[],[],1:size(Field.Hx,3));
-                        set(h, 'EdgeColor','none', 'FaceColor','interp')
-                        alpha(0.5)
-                        title(['Hx at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
-                        axis square;
-                        subplot(132)
-                        h = slice(real(Field.Hy),[],[],1:size(Field.Hy,3));
-                        set(h, 'EdgeColor','none', 'FaceColor','interp')
-                        alpha(0.5)
-                        title(['Hy at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
-                        axis square;
-                        subplot(133)
-                        h = slice(real(Field.Hz),[],[],1:size(Field.Hz,3));
-                        set(h, 'EdgeColor','none', 'FaceColor','interp')
-                        alpha(0.5)
-                        title(['Hz at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
-                        axis square;
+                    otherwise
+                        error('Wrong field designation')
                 end
             else
-                error('Too many input')
+                error('Wrong number of inputs')
             end     
+        end
+        
+        function h=plotRCWAgridField(Field,field)
+            if 0 %old style
+                h = slice(real(Field.(field)),[],[],1:size(Field.(field),3));
+            else
+                h = slice(Field.GridX,Field.GridY,Field.GridZ, permute(real(Field.(field)),[2,1,3]) ,[],[],Field.GridZ);
+                xlabel('x'); ylabel('y'); zlabel('z');
+            end
+            set(h, 'EdgeColor','none', 'FaceColor','interp');
+            alpha(0.5);
+            title([field ' at grid from ', num2str(Field.GridZ(1)), ' to ',num2str(Field.GridZ(end))]);
+%             axis square;
         end
         
     end
