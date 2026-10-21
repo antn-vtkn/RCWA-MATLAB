@@ -342,18 +342,18 @@ Z_ref = -Kz_ref\(Kx*X_ref + Ky*Y_ref);      %div(E)==0, isotropic media implied
 Z_trn = -Kz_trn\(Kx*X_trn + Ky*Y_trn);
 
 % Caculate Reflected and Tranmitted power
-if MaxDifOrder<0
-    R = real(diag(-Kz_ref)).*real(1./sum(-Kz_ref*delta,1)).*(abs(X_ref).^2+abs(Y_ref).^2+abs(Z_ref).^2);%%kinc(3) is wrong for nonzero orders; polarization is wrong in general as well (ok for TE in a TC amd meh for TM in a TC)
-    T = real((Ref.ur1/Trn.ur2)*diag(Kz_trn)).*real(1./sum(-Kz_ref*delta,1)).*(abs(X_trn).^2+abs(Y_trn).^2+abs(Z_trn).^2);
-else
+% if MaxDifOrder<0
+    R2 = real(diag(-Kz_ref)).*real(1./sum(-Kz_ref*delta,1)).*(abs(X_ref).^2+abs(Y_ref).^2+abs(Z_ref).^2);%%kinc(3) is wrong for nonzero orders; polarization is wrong in general as well (ok for TE in a TC amd meh for TM in a TC)
+    T2 = real((Ref.ur1/Trn.ur2)*diag(Kz_trn)).*real(1./sum(-Kz_ref*delta,1)).*(abs(X_trn).^2+abs(Y_trn).^2+abs(Z_trn).^2);
+% else
     R = real(-Kz_ref/kinc(3))*(abs(X_ref).^2+abs(Y_ref).^2+abs(Z_ref).^2);
     T = real((Ref.ur1/Trn.ur2)*(Kz_trn/kinc(3)))*(abs(X_trn).^2+abs(Y_trn).^2+abs(Z_trn).^2);
-end
+% end
 if nargout>=3
-    varargout{1}=E_ref;
+    varargout{1}=R2;%E_ref;
 end
 if nargout>=4
-    varargout{2}=E_trn;
+    varargout{2}=T2;%E_trn;
 end
 if nargout>=5
     varargout{3}=kzMin;
