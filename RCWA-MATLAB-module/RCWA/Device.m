@@ -1,0 +1,645 @@
+classdef Device < NamedObject & handle
+    % device is the class for constucting the whole device
+    % functions includ: AddLayer, BuildDevice, CylinderPatternDevice,
+    % RectanglePatternDevice,ConvDevice, ShowLayer
+    
+    properties (SetAccess = protected)
+        xydimension             % dimension of the device format [x,y]
+        length                  % length of each layer
+        material Material           % material of each layer
+        idimension              % imaginary dimension of the layer format [Nx,Ny],
+                                % Nx:number of point along x in real-space grid Ny:number 
+                                % of point along y in real-space grid
+        ilayer                  % number of the layer
+        PQR                     % number of spatial harmonics along x and y (HAS TO BE ODD NUM)
+        K1                      % lattice vectors in reciprocal space
+        K2
+        Pattern PatternShape            % patterns on the substract
+        URC                     % caculated convolution matrix of permittivity of the device
+        ERC                     % caculated convolution matrix of permeability of the device
+        iERC                    % caculated convolution matrix of inverse permeability of the device for calculation with improveConvergenceE; works well for K1~=0; K2==0
+    end
+    properties
+        ER                      % constructed permittivity of the device
+        UR                      % constructed permeability of the device
+        improveConvergenceE=0
+        optimizeUconst=0
+        optimizeEconst=0
+        optimizeUconstZ=0
+        optimizeEconstZ=0
+    end
+    properties (Constant,Hidden)
+        sur_nor = [0; 0; -1];                     % define surface normal
+    end
+
+    methods
+        function Dev = Device(xydimension,idimension,PQR,varargin)
+        % Purpose: Define the reflective and tranmission region of the device and period
+        % Input: permeability and permittivity in reflection and transmission region, and period
+        % The xydimension and idimension should be proportional
+            narginchk(3,4);
+            
+            Dev=Dev@NamedObject(varargin{:});
+            if numel(xydimension) == 2 && numel(idimension) == 2 &&all(abs(idimension(:)./PQR(:))>=(2-(PQR(:)==1)))
+                Dev.xydimension = abs(xydimension(:)');
+                Dev.idimension = abs(idimension(:)');
+            else
+                error('Check the device dimension')
+            end
+            PQR=PQR+mod(PQR+1,2);%make the value(s) odd
+            Dev.PQR = PQR;
+            K=2*pi./xydimension.*(PQR>1);
+            if PQR(1)>=PQR(2)
+                Dev.K1=[K(1);0];
+                Dev.K2=[0;K(2)];
+            else
+                Dev.K2=[K(1);0];
+                Dev.K1=[0;K(2)];
+            end
+        end
+        
+        function AddLayer(Dev,material,length,ilayer)
+        % Purpose define properties of each layer for the device
+            Dev.material(end+1) = material;
+            Dev.length(end+1) = length;
+            Dev.ilayer(end+1) = ilayer;
+        end
+        
+        % Added by TZH
+        % To handle the multi-layer material by hands
+        function AddMaterial_Mannual(Dev,ER,UR,d)       %this patch is for compatibility
+          AddMaterial_Manual(Dev,ER,UR,d);
+        end
+        function AddMaterial_Manual(Dev,ER,UR,d)
+            Dev.ER=ER;
+            Dev.UR=UR;
+            Dev.length=d;
+            Dev.ilayer=ones(size(ER,3),1); % 全部都�?�一层
+            % Dev.material{end+1}后续只要不去build layer应该不会用到
+            InvalidateConvMtx(Dev);
+        end
+
+
+        function AddPattern(Dev,shape,varargin)
+            % Purpose: add different paterns on specific layers
+          narginchk(2,7);
+          switch nargin
+            case 2
+              Dev.Pattern = [Dev.Pattern,(shape)];  %pass the object directly here; this is preferred
+              
+            case {6,7} %this case contains old syntax for compatibility
+              if iscell(shape)&&numel(shape)==2
+                  shape2=shape{2};
+                  shape=shape{1};
+                  if ismember(shape,PatternShape.EligibleShapes3D) && ismember(shape2,PatternShape.EligibleShapes2D)
+                      Dev.Pattern = [Dev.Pattern,(feval(str2func(shape),shape2,varargin{:}))];
+                  else
+                      error('Please spell the shape name(s) correctly.');
+                  end
+              else
+                  if ismember(shape,PatternShape.EligibleShapes2Dext)
+                      Dev.Pattern = [Dev.Pattern,(feval(str2func(shape),varargin{:}))];
+                  else
+                      error('Please spell the shape name correctly.');
+                  end
+              end
+            otherwise
+              error('Please provide either Pattern handle or proper inputs for it');
+          end
+        end
+        
+        function BuildLayer(Dev,waveindices)
+            % Purpose: assign er and ur to different layers
+            % Input: object
+            % Output: constructed er and ur
+            % INITIALIZE LAYERS TO er AND ur
+            narginchk(1,2);
+            
+            if nargin == 2
+                Nla=numel(waveindices);
+                mtxsize=[Dev.idimension(1),Dev.idimension(2),sum(Dev.ilayer),Nla];
+                Dev.ER = ones(mtxsize);
+                Dev.UR = ones(mtxsize);
+                        mtxsize(4)=1;
+                low = 1;
+                for n = 1:numel(Dev.ilayer)
+                    high = sum(Dev.ilayer(1:n));
+                    if isscalar(Dev.material(n).er) && isscalar(Dev.material(n).ur)
+                        Dev.ER(:,:,low:high,:) = Dev.material(n).er ; 
+                        Dev.UR(:,:,low:high,:) = Dev.material(n).ur ; 
+                    else
+                        mtxsize(3)=Dev.ilayer(n);
+                        Dev.ER(:,:,low:high,waveindices) = ones(mtxsize).*shiftdim( Dev.material(n).er(waveindices,2) ,-3);
+                        Dev.UR(:,:,low:high,waveindices) = ones(mtxsize).*shiftdim( Dev.material(n).ur(waveindices,2) ,-3); 
+                    end
+                    low = high+1;
+                end
+            elseif nargin == 1
+                Dev.ER = ones(Dev.idimension(1),Dev.idimension(2),sum(Dev.ilayer));
+                Dev.UR = ones(Dev.idimension(1),Dev.idimension(2),sum(Dev.ilayer));
+                low = 1;
+                for n = 1:numel(Dev.ilayer)
+                    high = sum(Dev.ilayer(1:n));
+                    Dev.ER(:,:,low:high) = Dev.material(n).er ; 
+                    Dev.UR(:,:,low:high) = Dev.material(n).ur ; 
+                    low = high+1;    
+                end
+            end
+            InvalidateConvMtx(Dev);
+        end
+        
+        function BuildPattern(Dev,waveindices)
+            % Purpose: build different patterns on the device
+            % Usage: The function will take the pattern object out and compute the
+            % ER and UR in its object and transfer the data back. The
+            % function here will handle the er and ur 
+            narginchk(1,2);
+            
+            for n = 1:numel(Dev.Pattern)
+                if isscalar(Dev.Pattern(n).material.er)
+                    BuildPattern(Dev.Pattern(n),Dev);
+                else
+                    BuildPattern(Dev.Pattern(n),Dev,waveindices);
+                end
+            end  
+            InvalidateConvMtx(Dev);
+        end
+        
+        function BlurDevice(Dev,BlurCoef)
+            % Purpose: blur the inhomogeneous layer of the device only ER
+            layers = [];
+            for n = 1:numel(Dev.Pattern)
+                layers = [layers,Dev.Pattern{1,n}.nlayer];    
+            end
+            for i = layers      %shouldn't we use `unique` here?
+              for j=1:size(Dev.ER,4)
+                Dev.ER(:,:,i,j) = Blur(Dev.ER(:,:,i,j),BlurCoef);   %what about Ur?
+              end
+            end
+
+        end
+        
+        function ShrinkDevice(Dev,ShrinkCoef)
+            % Purpose: Shrink each layer of the device the effect including
+            % blur and shrink the device
+            Blockdimensionx = (Dev.idimension(1) - mod(Dev.idimension(1), ShrinkCoef))/ShrinkCoef;
+            Blockdimensiony = (Dev.idimension(2) - mod(Dev.idimension(2), ShrinkCoef))/ShrinkCoef;
+            BlockER = ones(Blockdimensionx,Blockdimensiony,sum(Dev.ilayer),size(Dev.ER,4));
+%             BlockUR = ones(Blockdimensionx,Blockdimensiony,sum(Dev.ilayer));
+            layers = [];
+            for n = 1:numel(Dev.Pattern)
+                layers = [layers,Dev.Pattern{1,n}.nlayer];    
+            end
+            for i = layers
+              for j=1:size(Dev.ER,4)
+                Dev.ER(:,:,i,j) = Blur(Dev.ER(:,:,i,j),ShrinkCoef);   %what about Ur?
+%                 Dev.UR(:,:,i) = Blur(Dev.UR(:,:,i),ShrinkCoef);
+                BlockER(:,:,i,j) = BlockMean(Dev.ER(:,:,i,j),ShrinkCoef);
+%                 BlockUR(:,:,i) = BlockMean(Dev.UR(:,:,i),ShrinkCoef);
+             end
+            end            
+            Dev.ER = BlockER;
+%             Dev.UR = BlockUR;           
+        end            
+            
+        
+        
+      
+ %  convmat subfunction was VERY inefficient (slow); this code was rewritten to avoid calling it whenever possible
+ %  now convmat was sped up by itself, and these complications are not required
+         function ConvDevice(Dev)
+             % Purpose: caculate the convolution matrix of the device
+             NH  = prod(Dev.PQR);                   %total number of spatial harmonics
+             Nz=sum(Dev.ilayer);
+             Nla=size(Dev.ER,4);
+             varTol=1e-10;
+%              persistent counter
+%              if isempty(counter), counter=0; end
+%              Dev.URC = ones(NH,NH,Nz);
+             Dev.URC = eye(NH) .* (Dev.UR(1,1,:,:).*ones(1,1,Nz,Nla));
+             for n = 1 : Nz
+               URvar = Dev.UR(:,:,n,:);
+               for iLa=1:Nla
+                 URvar2 = URvar(:,:,1,iLa);
+                 if Dev.optimizeUconst
+                     URvarm = mean(mean(URvar2,1),2);         %does UR vary over (x,y) or not
+                     URvarm = max(max(abs( URvar2-URvarm ),[],1),[],2)/URvarm;
+                     if abs(URvarm)<varTol    %(size(Dev.UR,1)*size(Dev.UR,2)==1 || URvar==0 )
+                         continue       %the eye has already made the URC for this layer
+                     end
+                 end
+                 if iLa>1 && Dev.optimizeUconstZ
+                   URvarm=URvar2-URvar(:,:,1,iLa-1);         %does UR vary over wavelength or not
+                   URvarm = max(max(abs( URvarm ),[],1),[],2)/mean(mean(URvar2,1),2);
+                   if abs(URvarm)<varTol
+                     Dev.URC(:,:,n,iLa) = Dev.URC(:,:,n,iLa-1);
+                     continue
+                   end
+                   URvarm=URvar2-URvar(:,:,1,1);
+                   URvarm = max(max(abs( URvarm ),[],1),[],2)/mean(mean(URvar2,1),2);
+                   if abs(URvarm)<varTol
+                     Dev.URC(:,:,n,iLa) = Dev.URC(:,:,n,1);
+                     continue
+                   end
+                 end
+%                     counter=counter+1;
+%                     disp([counter,size(URvar2)])
+                     Dev.URC(:,:,n,iLa) = convmat(URvar2,Dev.PQR);            % 1 layer convolution matrices for ur
+               end
+             end
+             % Dev.ERC=[];
+             % CompactMemDevice(Dev);
+%              Dev.ERC = ones(NH,NH,Nz);
+             Dev.ERC = eye(NH) .* (Dev.ER(1,1,:,:).*ones(1,1,Nz,Nla));
+             if Dev.improveConvergenceE
+                 Dev.iERC = eye(NH) .* (Dev.ER(1,1,:,:).\ones(1,1,Nz,Nla));
+             else
+                 Dev.iERC=nan;
+             end
+             for n = 1 : Nz
+               ERvar = Dev.ER(:,:,n,:);
+               for iLa=1:Nla
+                 ERvar2 = ERvar(:,:,1,iLa);
+                 if Dev.optimizeEconst
+                     ERvarm = mean(mean(ERvar2,1),2); %does ER vary over (x,y) or not
+                     ERvarm = max(max(abs( ERvar2-ERvarm ),[],1),[],2)/ERvarm;
+                     if abs(ERvarm)<varTol, continue; end %the eye has already made the ERC for this layer
+                 end
+                 if iLa>1 && Dev.optimizeEconstZ
+                   ERvarm=ERvar2-ERvar(:,:,1,iLa-1);         %does ER vary over wavelength or not
+                   ERvarm = max(max(abs( ERvarm ),[],1),[],2)/mean(mean(ERvar2,1),2);
+                   if abs(ERvarm)<varTol
+                     Dev.ERC(:,:,n,iLa) = Dev.ERC(:,:,n,iLa-1);
+                     if Dev.improveConvergenceE
+                         Dev.iERC(:,:,n,iLa) = Dev.iERC(:,:,n,iLa-1);
+                     end
+                     continue
+                   end
+                   ERvarm=ERvar2-ERvar(:,:,1,1);
+                   ERvarm = max(max(abs( ERvarm ),[],1),[],2)/mean(mean(ERvar2,1),2);
+                   if abs(ERvarm)<varTol
+                     Dev.ERC(:,:,n,iLa) = Dev.ERC(:,:,n,1);
+                     if Dev.improveConvergenceE
+                         Dev.iERC(:,:,n,iLa) = Dev.iERC(:,:,n,1);
+                     end
+                     continue
+                   end
+                 end
+%                  counter=counter+1;
+%                  disp([counter,size(ERvar2)])
+                 Dev.ERC(:,:,n,iLa) = convmat(ERvar2,Dev.PQR);            % 1 layer convolution matrices for er 
+                 if Dev.improveConvergenceE
+                     Dev.iERC(:,:,n,iLa) = convmat(1./ERvar2,Dev.PQR);
+                 end
+               end
+             end
+             % CompactMemDevice(Dev);
+             
+         end
+        
+         function CompactMemDevice(Dev)
+             if isfield(Dev,'ERC')&&numel(Dev.ERC)
+                 Dev.ER=[];
+             end
+             if isfield(Dev,'URC')&&numel(Dev.URC)
+                 Dev.UR=[];
+             end
+         end
+        
+         function InvalidateConvMtx(Dev)
+             if isfield(Dev,'ER')&&numel(Dev.ER)
+                 Dev.ERC=[];
+                 if Dev.improveConvergenceE
+                     Dev.iERC=[];
+                 end
+             end
+             if isfield(Dev,'UR')&&numel(Dev.UR)
+                 Dev.URC=[];
+             end
+         end
+        
+         function ShowLayer(Dev,nlayer,nLa)
+             % Purpose: show certain layer of builded device
+             % Input: nlayer--the layer which will be shown
+           if nargin<3, nLa=1; end
+           onepage=1;
+           for jlayer=nlayer
+            for itab=0:1
+             titlestr=[' image of layer: ', num2str(jlayer) ' at wavelength: ' num2str(nLa)];
+%              title(titlestr);
+             totheright=itab&&onepage;
+             if ~totheright, figure('Name',titlestr); end
+
+             for icol=1:2
+                 if icol==1
+                     vv=Dev.ER(:,:,jlayer,nLa);
+                     valuestr='ER';
+                 elseif icol==2
+                     vv=Dev.UR(:,:,jlayer,nLa);
+                     valuestr='UR';
+                 else
+                     vv=nan+1i*nan;
+                     valuestr='#';
+                 end
+                 if itab, vv = fftshift(fft2(vv)) / numel(vv); end
+
+                 for irow=1:2
+                     ncols=2+2*~~onepage;
+                     subplot(2,ncols,ncols*(irow-1)+2*totheright+icol);
+                     if irow==1
+                         v=real(vv).';
+                         partstr='Re';
+                     elseif irow==2
+                         v=-imag(vv).';
+                         partstr='Im';
+                     else
+                         v=nan;
+                         partstr='#';
+                     end
+                     imagesc(v);
+                     titlestr=[partstr '(' valuestr ')'];
+                     if itab, titlestr=['Fourier[' titlestr ']']; end
+                     title(titlestr)
+                     xlabel('x (\mum)');
+                     ylabel('y (\mum)');
+                     if ~isvector(v), axis equal; end
+                     axis tight;
+%                      set(gca,'YDir','reverse');
+%                      set(gca,'XAxisLocation','top');
+%                      colormap(flipud(autumn));
+                     colorbar;
+                 end
+             end
+            end
+           end
+         end
+         
+         function ShowConvLayer(Dev,nlayer,nLa)
+             % Purpose: show certain layer of builded device
+             % Input: nlayer--the layer which will be shown
+           if nargin<3, nLa=1; end
+           for jlayer=nlayer
+             titlestr=[' image of layer: ', num2str(jlayer) ' at wavelength: ' num2str(nLa)];
+%              title(titlestr);
+             figure('Name',titlestr);
+             titlestr='';
+             for icol=1:2
+                 if icol==1
+                     vv=Dev.ERC(:,:,jlayer,nLa);
+                     valuestr='ER';
+                 elseif icol==2
+                     vv=Dev.URC(:,:,jlayer,nLa);
+                     valuestr='UR';
+                 else
+                     vv=nan+1i*nan;
+                     valuestr='#';
+                 end
+
+                 for irow=1:2
+                     subplot(2,2,2*(irow-1)+icol);
+                     if irow==1
+                         v=real(vv).';
+                         partstr='Re';
+                     elseif irow==2
+                         v=-imag(vv).';
+                         partstr='Im';
+                     else
+                         v=nan;
+                         partstr='#';
+                     end
+                     imagesc(v);
+                     xlabel('N_x_y');
+                     ylabel('N_x_y');
+                     title([partstr '(Convolution of ' valuestr ')' titlestr])
+                     axis equal tight;
+                     colorbar;
+                 end
+             end
+           end
+         end
+
+         
+         function numlayer = numlayer(Dev)
+            % Purpose; cacualte the number of layers
+            numlayer = numel(Dev.length);
+         end        
+            
+         function LengthLayer = GetLengthLayer(Dev)
+             % Purpose: get the length of each layer
+             low = 1;
+             for n = 1:numel(Dev.length)
+                 high = sum(Dev.ilayer(1:n));
+                 LengthLayer(low:high) = Dev.length(n)/Dev.ilayer(n);
+                 low = high+1; 
+             end
+         end
+         
+
+         
+%          function ShowDevice(Dev)
+%              Lx = Dev.xydimension(1);
+%              Ly = Dev.xydimension(2);
+%              Lz = sum(Dev.length);
+%              % Vertices
+%              VertexData = [Lx*ones(8,1),Ly*ones(8,1),Lz*ones(8,1)]...
+%                  .*[0,0,0;
+%                  1,0,0;
+%                  0,1,0;
+%                  0,0,1;
+%                  1,1,0;
+%                  0,1,1;
+%                  1,0,1;
+%                  1,1,1];
+%              % Patches
+%              Index_Patch = ...
+%                  [1,2,5,3;
+%                  1,3,6,4;
+%                  1,4,7,2;
+%                  4,7,8,6;
+%                  2,5,8,7;
+%                  3,6,8,5];
+%              n_pat = 6;
+%              for i_pat=1:n_pat
+%                  % Patches data
+%                  PatchData_X(:,i_pat) = VertexData(Index_Patch(i_pat,:),1);
+%                  PatchData_Y(:,i_pat) = VertexData(Index_Patch(i_pat,:),2);
+%                  PatchData_Z(:,i_pat) = VertexData(Index_Patch(i_pat,:),3);
+%              end
+%              % Draw patches
+%              figure(1);
+%              h = patch(PatchData_X,PatchData_Y,PatchData_Z,'y');
+%              set(h,'FaceLighting','phong','EdgeLighting','phong');
+%              % Axes settings
+%              xlabel('x','FontSize',14);
+%              ylabel('y','FontSize',14);
+%              zlabel('z','FontSize',14);
+%              set(gca,'FontSize',14);
+%              axis vis3d equal;
+%              view([-37.5,30]);
+%              camlight;
+%              grid on;
+%              xlim([-0.15,0.35]);
+%              ylim([-0.2,0.3]);
+%              zlim([-0.1,0.4]);
+%     end
+         
+
+         
+%         function PyramidePatternDevice(Dev,center,SideLength,nlayer,varargin)
+%             if nargin == 5
+%                 fillerer = varargin{1}(1,1);
+%                 fillerur = varargin{1}(1,2);
+%             elseif nargin == 6
+%                 fillerer = varargin{1}.er(varargin{2},2);
+%                 fillerur = varargin{1}.ur(varargin{2},2);
+%             else 
+%                 error('There is a problem with the number of inputs');
+%             end            
+%             layernum = numel(nlayer);
+%             gap = SideLength/(layernum-1);
+%             p = 0;
+%             
+%             for i =  nlayer
+%                 RectanglePatternDevice(Dev,center,[SideLength-p*gap,SideLength-p*gap],i,[fillerer,fillerur])
+%                 p = p+1; 
+%             end
+%         end
+        
+%        
+           
+         
+%           function CylinderPatternDevice(Dev,center,radius,nlayer,varargin)
+%             % Purpose: make cylinder pattern on the device
+%             % Input: center--center of the hole, radius--radius of the
+%             % hole,nlayer--in which layer will the hole be, filler--the
+%             % material that will fill the hole [er,ur] or name of the
+%             % material and its conresponding wavelength
+%             % Input format: Dev = Dev.CylinderPatternDevice([0.15,0.15],0.1,[1:3],7);
+%             if nargin == 5
+%                 fillerer = varargin{1}(1,1);
+%                 fillerur = varargin{1}(1,2);
+%             elseif nargin == 6
+%                 fillerer = varargin{1}.er(varargin{2},2);
+%                 fillerur = varargin{1}.ur(varargin{2},2);
+%             else 
+%                 error('There is a problem with the number of inputs');
+%             end
+%                 
+%             x0 = center(1);
+%             y0 = center(2);
+% 
+%             r = radius;
+%             if x0-r <= 0 || y0-r <= 0
+%                 error('The radius is too large!')
+%             end
+%             Nx = Dev.idimension(1);
+%             Ny = Dev.idimension(2);
+%             Lx = Dev.xydimension(1);
+%             Ly = Dev.xydimension(2);
+%             dx = Lx/Nx;
+%             dy = Ly/Ny;
+%             nx = round(r/dx);
+%             nx0 = round(x0*Nx/Lx);
+%             nx1 = nx0 - nx;
+%             nx2 = nx0 + nx;
+%             for n = nx1:nx2
+%                 ny1 = real(-sqrt(r^2 - (n*dx-x0)^2)+y0);
+%                 ny2 = real(sqrt(r^2 - (n*dx-x0)^2)+y0);
+%                 ny1 = round(ny1/dy);
+%                 ny2 = round(ny2/dy);
+%                 Dev.ER(n,ny1:ny2,nlayer)=fillerer;
+%                 Dev.UR(n,ny1:ny2,nlayer)=fillerur;
+%             end                  
+%         end
+%         
+%         function RectanglePatternDevice(Dev,center,rectxy,nlayer,varargin)
+%              % Purpose: make rectangle pattern on the device
+%              % Input: center--the center of the rectangle,rectx--width in
+%              % the x direction,recty--width in y direction, nlayer--in which layer will the rectangle
+%              % be, filler--the material that will fill the hole.
+%              % Inputformat: Dev =Dev.RectanglePatternDevice([0.2,0.25],[0.3,0.3],[0.19,0.2],[3:5],[2,1]);
+%             if nargin == 5
+%                 fillerer = varargin{1}(1,1);
+%                 fillerur = varargin{1}(1,2);
+%             elseif nargin == 6
+%                 fillerer = varargin{1}.er(varargin{2},2);
+%                 fillerur = varargin{1}.ur(varargin{2},2);
+%             else 
+%                 error('There is a problem with the number of inputs');
+%             end             
+%             x0 = center(1);
+%             y0 = center(2);
+%             rectx = rectxy(1);
+%             recty = rectxy(2);
+%             if x0-rectx/2 < 0 || y0-recty/2 < 0
+%                 error('The rectangle is too large!')
+%             end
+%             Nx = Dev.idimension(1);
+%             Ny = Dev.idimension(2);
+%             Lx = Dev.xydimension(1);
+%             Ly = Dev.xydimension(2);
+%             dx = Lx/Nx;
+%             dy = Ly/Ny;
+%             nx = ceil(rectx/(2*dx));
+%             nx0 = round(x0*Nx/Lx);
+%             nx1 = nx0-nx+1;
+%             nx2 = nx0+nx-1;
+%             ny = ceil(recty/(2*dy));
+%             ny0 = round(y0*Ny/Ly);
+%             ny1 = ny0-ny+1;
+%             ny2 = ny0+ny-1;            
+%             for n = nx1:nx2
+%                 for m = ny1:ny2
+%                     Dev.ER(n,m,nlayer) = fillerer;
+%                     Dev.UR(n,m,nlayer) = fillerur;
+%                 end
+%             end
+%         end
+%         
+%         function TrianglePatternDevice(Dev,center,SideLength,nlayer,varargin)
+%              % Purpose: make equilateral triangle pattern on the device
+%              % Input: center--the center of the rectangle,SideLength--side
+%              % length,nlayer--in which layer will the rectangle
+%              % be, filler--the material that will fill the hole.
+%              % Inputformat: Dev =Dev.RectanglePatternDevice([0.2,0.25],0.1,[3:5],[2,1]);
+%             if nargin == 5
+%                 fillerer = varargin{1}(1,1);
+%                 fillerur = varargin{1}(1,2);
+%             elseif nargin == 6
+%                 fillerer = varargin{1}.er(varargin{2},2);
+%                 fillerur = varargin{1}.ur(varargin{2},2);
+%             else 
+%                 error('There is a problem with the number of inputs');
+%             end                           
+%             Nx = Dev.idimension(1);
+%             Ny = Dev.idimension(2);
+%             Lx = Dev.xydimension(1);
+%             Ly = Dev.xydimension(2);
+%             dx = Lx/Nx;
+%             dy = Ly/Ny;
+%             h = 0.5*sqrt(3)*SideLength; 
+%             x0 = center(1);
+%             y0 = center(2);
+%             if abs((Lx/2-x0))+SideLength/2 > Lx/2 || h*2/3-(Ly/2-y0)>Ly/2 ...
+%                     ... || h/3 + (Ly/2-y0)>Ly/2
+%                 error('The rectangle is too large!')
+%             end            
+%             nxm = floor((Lx/2-x0)/dx);
+%             nym = floor((Ly/2-y0)/dy);
+%             ny = round(h/dy); 
+%             ny1 = round((Ny - ny)/2)+nym; 
+%             ny2 = ny1 + ny - 1; 
+%             for ny = ny1 : ny2 
+%                 f = (ny - ny1)/(ny2 - ny1); 
+%                 nx = round(f*SideLength/Lx*Nx); 
+%                 nx1 = 1 + floor((Nx - nx)/2)-nxm; 
+%                 nx2 = nx1 + nx; 
+%                 Dev.ER(nx1:nx2,ny,nlayer) = fillerer;
+%                 Dev.UR(nx1:nx2,ny,nlayer) = fillerur;
+%             end
+%         end
+
+    end
+   
+end
+      
