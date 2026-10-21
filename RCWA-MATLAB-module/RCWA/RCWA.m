@@ -89,6 +89,7 @@ classdef RCWA < NamedObject & handle
         end
         
         function RCWARun(ObjRCWA,source,device,field,Nparallel,MaxDifOrder)
+            narginchk(4,5);
             if ObjRCWA.ShowProcess == 1
                 h = waitbar(0,'1','Name','RCWA Caculating...',...
                     'CreateCancelBtn',...
@@ -163,7 +164,7 @@ classdef RCWA < NamedObject & handle
 %             for nlam = 1 : NLAM
             parfor (nlam = 1 : NLAM, abs(Nparallel))
                 % Make patterns in the layer input:[center],radius,[in which ilayer],[er, ur]
-                [Ref,Trn,~,~,kZMin,Inc,field(nlam)] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam,MaxDifOrder);
+                [Ref,Trn,~,~,kZMin,Inc,field(nlam)] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam);
                 if ObjRCWA.RecordDifOrder == 1
                     Ref_order_(:,:,nlam,:) = reshape(Ref,PQR);            % record refection in each order
                     Trn_order_(:,:,nlam,:) = reshape(Trn,PQR);            % record transmission in each order

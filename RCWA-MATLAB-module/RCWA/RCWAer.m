@@ -23,7 +23,7 @@ function [R,T,varargout] = RCWAer(ObjRCWA,source,device,wavenumber,MaxDifOrder)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % VERIFY NUMBER OF INPUT ARGUMENTS
-narginchk(4,5);
+narginchk(4,4);
 if nargin<5, MaxDifOrder=0; end %all nonzero orders are currently incorrectly evaluated. Pass nonzero here only if you know what you are doing
 
 % VERIFY NUMBER OF OUTPUT ARGUMENTS
