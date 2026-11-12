@@ -11,7 +11,7 @@ width=1;
 d=0.5;
 
 % 注意原文章的横坐标的归一化方式！
-lambda=1000;
+lambda=1200;
 epssup=1;epssdn=1;
 num_xy=521;
 numz=1;
@@ -21,7 +21,7 @@ mid_layer=Material('Mid',[eps_layer,1]);
 Air = Material('Air',[1,1]);
 ShowProcess=1;
 Simul = RCWA([epssup,1],[epssdn,1],ShowProcess);
-S = Source(lambda,[0,0],[1,0]);
+S = Source(lambda,[30+0*20,0],[1,0]);
 Dev = Device([width,width],[num_xy,num_xy],[num_har,num_har]);
 Dev.optimizeUconst=01;
 Dev.optimizeEconst=01;
@@ -31,12 +31,13 @@ AddPattern(Dev,'Cylinder',[width/2,width/2],radius,1,Air);
 % Activate the field recorder
 ConstructField(Simul);% 用于记录场
 XYGrid=[20 10]*10;
+XYGrid=[XYGrid 2*4 1];
 %% To obtain the field in specific plane
 % Thefield grid
 field=Field();
 ZLayer=0.1;
 GetLayerField(field,XYGrid,ZLayer);
-RCWARun(Simul,S,Dev,field,01);
+RCWARun(Simul,S,Dev,field,0/1);
 ShowLayerField(Simul.field);
 ShowLayerField(Simul.field,'Ey');
 ShowLayerField(Simul.field,'H');
@@ -45,7 +46,7 @@ ShowLayerField(Simul.field,'H');
 field2=Field();
 Z_Grid=linspace(0,0.5,10);
 GetGridField(field2,XYGrid,Z_Grid);
-RCWARun(Simul,S,Dev,field2,01);
+RCWARun(Simul,S,Dev,field2,0/1);
 ShowGridField(Simul.field);
 ShowGridField(Simul.field,'Ey');
 ShowGridField(Simul.field,'H');

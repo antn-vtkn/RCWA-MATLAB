@@ -27,7 +27,9 @@ narginchk(4,5);
 if nargin<5, MaxDifOrder=0; end %all nonzero orders are currently incorrectly evaluated. Pass nonzero here only if you know what you are doing
 
 % VERIFY NUMBER OF OUTPUT ARGUMENTS
-nargoutchk(2,7);
+nargoutchk(2,8);
+
+memstat=[];
 
 %% EXTRACT PARAMETERS
 % Reflective and reflective region parameters
@@ -41,6 +43,7 @@ PQR = device.PQR;
 CondRecordField = ObjRCWA.RecordField;                %condiction of recording the field
 if CondRecordField == 1
     field=ObjRCWA.field(wavenumber);
+    field.IsFieldSet=0;
 end
 
 %% CACULATE DEVICE MATRICES 
@@ -203,6 +206,7 @@ for n = 1: sum(device.ilayer)
     S_G_21 = F*S_G_21;
     S_G_22 = S22 + F*S_G_22*S12;
 end
+memstat(1:3,end+1) = MemRecordState();
 clear BiA XBiAX iWW0 iVV0 izn zn LAM W V P ERC21 ERC12 KxiERC KyiERC KxiURC KyiURC 
 
 %% Connect the device matrix to external regions (This part is not necessary if ref and trn parts is in free space)
@@ -276,6 +280,7 @@ else
     Kz_trn = Kz0;
     V_trn = V0;
 end
+memstat(1:3,end+1) = MemRecordState();
 clear LAM A B P Q D F S11 S12 S21 S22 iW0W iV0V I V0 Kz0
 W_ref = W0;
 W_trn = W0;
@@ -361,9 +366,6 @@ end
 if nargout>=6
     varargout{4}=E_src;
 end
-if nargout>=7
-    varargout{5}=field;
-end
 %% Record parameters for caculating field in the device
 
 % Record the parameters for reconstructe E and H field
@@ -379,5 +381,17 @@ if CondRecordField == 1
     field.W_V_ref = sparse([W_ref,W_ref;-V_ref,V_ref]);
     field.W_V_trn = sparse([W_trn,W_trn;-V_trn,V_trn]);
     field.C_input = [C_src;C_ref];    % input for the first layer
+    field.IsFieldSet=1;
+else
+    field=[];
+    field.IsFieldSet=0;
 end
+if nargout>=7
+    varargout{5}=field;
+end
+memstat(1:3,end+1) = MemRecordState();
+if nargout>=8
+    varargout{6}=memstat;
+end
+
     
