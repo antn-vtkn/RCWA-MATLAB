@@ -10,14 +10,19 @@ classdef RCWA < NamedObject & handle
         trnerur                 % permeability and permittivity in transmission region
         R
         T
+        R2
+        T2
         Ref_order               % reflection in each order
         Trn_order               % transmission in each order
+        Ref2_order               % reflection in each order
+        Trn2_order               % transmission in each order
         Inc_order               % incidence in each order
         source Source                 % source of the simulation
         device Device                 % device of the simulation
 
         kzMin                   % for diagnostics
-        memstat=[]
+        kzExt                   % for diagnostics
+        memstat=[]              % for diagnostics
     end
 
     properties
@@ -137,16 +142,20 @@ classdef RCWA < NamedObject & handle
                 field(1).LAM = cell(1,LayerNum);
                 for ii=2:NLAM
                     field(ii)=copy(field(1));
+                    ObjRCWA.field(ii) = field(ii);
                 end
             end
 
             if ObjRCWA.RecordDifOrder == 1             % initialize matrix to record diffrection for each order
 %                 x_k = size(device.PQR);
                 Ref_order_ = zeros(PQR(1),PQR(2),NLAM,PQR(3));            % record refection in each order
+                Ref2_order_ = Ref_order_;
                 Trn_order_ = Ref_order_;            % record transmission in each order
+                Trn2_order_ = Ref_order_;
                 Inc_order_ = zeros(PQR(1),PQR(2),2,NLAM,PQR(3));            % record incidence in each order
-                mem_stat=[];%zeros(NLAM,3,3);
             end
+            kzz = zeros(PQR(1),PQR(2),NLAM,3);
+            mem_stat=[];%zeros(NLAM,3,3);
 %             if ObjRCWA.RecordField == 1             % initialize Filed object to be prepared to record field
 %                 LayerNum = sum(ObjRCWA.device.ilayer);
 %                 ObjRCWA.field = Field;
@@ -165,30 +174,40 @@ classdef RCWA < NamedObject & handle
 %             for nlam = 1 : NLAM
             parfor (nlam = 1 : NLAM, abs(Nparallel))
                 % Make patterns in the layer input:[center],radius,[in which ilayer],[er, ur]
-                [Ref,Trn,~,~,kZMin,Inc,field__,memstat_] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam,MaxDifOrder);
+                [Ref,Trn,Ref2,Trn2,field__,Inc,kZMin,kZExt,memstat_] = RCWAer(ObjRCWA,source,ObjRCWA.device,nlam,MaxDifOrder);
                 if ObjRCWA.RecordDifOrder == 1
                     Ref_order_(:,:,nlam,:) = reshape(Ref,PQR);            % record refection in each order
                     Trn_order_(:,:,nlam,:) = reshape(Trn,PQR);            % record transmission in each order
+                    Ref2_order_(:,:,nlam,:) = reshape(Ref2,PQR);            % record refection in each order
+                    Trn2_order_(:,:,nlam,:) = reshape(Trn2,PQR);            % record transmission in each order
 %                     Ref_order_(:,:,nlam,:) = reshape(Ref,PQR(1),PQR(2),1,PQR(3));            % record refection in each order
 %                     Trn_order_(:,:,nlam,:) = reshape(Trn,PQR(1),PQR(2),1,PQR(3));            % record transmission in each order
                     Inc_order_(:,:,:,nlam,:) = reshape(Inc,PQR(1),PQR(2),2,1,PQR(3));            % record incidence in each order
                 end
+                kzz(:,:,nlam,:) = reshape(kZExt,PQR(1),PQR(2),1,3);
                 mem_stat(nlam,:,:)=memstat_;
                 Ref = sum(Ref,1);
                 Trn = sum(Trn,1);
                 RR(nlam,:) = 100*Ref;
                 TT(nlam,:) = 100*Trn;
+                Ref2 = sum(Ref2,1);
+                Trn2 = sum(Trn2,1);
+                RR2(nlam,:) = 100*Ref2;
+                TT2(nlam,:) = 100*Trn2;
                 KzMin(nlam,:)=kZMin';
                 % caculate field in device
                 if ObjRCWA.RecordField
 %                     field_(nlam)=copy(Fld);
                     field(nlam)=field__;
-                    field(nlam).CaculateField;
+                    if field(nlam).IsGridSet, field(nlam).CaculateField; end
                 end
             end
             ObjRCWA.R = RR;
             ObjRCWA.T = TT;
+            ObjRCWA.R2 = RR2;
+            ObjRCWA.T2 = TT2;
             ObjRCWA.kzMin = KzMin;
+            ObjRCWA.kzExt = kzz;
             clear RR TT KzMin memstat_
 
             if ObjRCWA.RecordField
@@ -210,6 +229,8 @@ classdef RCWA < NamedObject & handle
             if ObjRCWA.RecordDifOrder == 1
                 ObjRCWA.Ref_order = Ref_order_;
                 ObjRCWA.Trn_order = Trn_order_;
+                ObjRCWA.Ref2_order = Ref2_order_;
+                ObjRCWA.Trn2_order = Trn2_order_;
                 ObjRCWA.Inc_order = Inc_order_;
                 ObjRCWA.memstat=mem_stat;
                 clear Ref_order_ Trn_order_ Inc_order_

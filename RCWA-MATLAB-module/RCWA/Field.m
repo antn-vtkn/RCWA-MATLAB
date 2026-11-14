@@ -174,8 +174,11 @@ classdef Field < matlab.mixin.Copyable % & handle
         function CaculateField(FieldArr)
             for ii=1:numel(FieldArr)
                 field=FieldArr(ii);       %Remember, this is a handle class!!!
+                if ~(field.IsGridSet)
+                    error('XYZ-grid is unset, but calculation is requested.')
+                end
                 if ~(field.IsGridCalculated||field.IsDeviceSet)
-                    error('XYZ-grid is not filled and device size is unset.')
+                    error('XYZ-grid is not calculated and device size is unset.')
                 end
                 
                 CheckPrerequisitesOfMonochromaticField(field);
@@ -195,15 +198,24 @@ classdef Field < matlab.mixin.Copyable % & handle
             if ~field.IsFieldSet
                 error('Field structure is not ready; run RCWArun() first!')
             end
+            if ~field.IsGridSet
+                error('Grid for field calculation is not set');
+            end
             if ~field.IsGridCalculated
                 CalculateGrid(field);
             end
         end
                 
-        function CaculateLayerField(FieldArr)
+        function CaculateLayerField(Field)
+            CalculateLayerField(Field)
+        end
+        function CalculateLayerField(FieldArr)
             % This function caculate the field in grid
           for ii=1:numel(FieldArr)
             Field=FieldArr(ii);       %Remember, this is a handle class!!!
+            if isempty(Field.LayerZ)
+                error('Layer type grid is expected but not found!');
+            end
             CheckPrerequisitesOfMonochromaticField(Field);
             [numLayer,Z_position] = FindLayer(Field,Field.LayerZ);
             NH = length(Field.Kx);
@@ -242,16 +254,23 @@ classdef Field < matlab.mixin.Copyable % & handle
             Field.Hx = shiftdim(sum(U_x.*Phase,1),1);
             Field.Hy = shiftdim(sum(U_y.*Phase,1),1);
             Field.Hz = shiftdim(sum(U_z.*Phase,1),1);
+            Field.IsFieldCalculated=1;
          end
         end
         
-        function CaculateGridField(FieldArr)
+        function CaculateGridField(Field)
+            CalculateGridField(Field)
+        end
+        function CalculateGridField(FieldArr)
           for ii=1:numel(FieldArr)
             % This function caculate field in a grid
             % since here we take count of the first reflective layer the
             % device will start from the second layer 
             % initilize num_position_Layer
             Field=FieldArr(ii);       %Remember, this is a handle class!!!
+            if isempty(Field.GridZ)
+                error('Grid type grid is expected but not found!');
+            end
             CheckPrerequisitesOfMonochromaticField(Field);
             num_layer = numel(Field.GridZ);
             num_position_Layer = zeros(num_layer,2);
@@ -309,6 +328,7 @@ classdef Field < matlab.mixin.Copyable % & handle
             Field.Hx = shiftdim(sum(U_x_.*Phase,1),1);
             Field.Hy = shiftdim(sum(U_y_.*Phase,1),1);
             Field.Hz = shiftdim(sum(U_z_.*Phase,1),1);
+            Field.IsFieldCalculated=1;
 %             clear Ex_ Ey_ Ez_ Hx_ Hy_ Hz_ IniZ
           end
         end
@@ -347,6 +367,12 @@ classdef Field < matlab.mixin.Copyable % & handle
             end
             if ~isscalar(Field)
                 error('Can''t work with arrays, please specify a single element');
+            end
+            if isempty(Field.LayerZ)
+                error('Layer type grid is expected but not found!');
+            end
+            if ~Field.IsFieldCalculated
+                CalculateLayerField(Field);
             end
             
             if nargin-isindexed == 1
@@ -420,6 +446,12 @@ classdef Field < matlab.mixin.Copyable % & handle
             end
             if ~isscalar(Field)
                 error('Can''t work with arrays, please specify a single element');
+            end
+            if isempty(Field.GridZ)
+                error('Grid type grid is expected but not found!');
+            end
+            if ~Field.IsFieldCalculated
+                CalculateLayerField(Field);
             end
             
             if nargin-isindexed == 1

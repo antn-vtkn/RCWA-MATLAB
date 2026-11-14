@@ -27,7 +27,7 @@ narginchk(4,5);
 if nargin<5, MaxDifOrder=0; end %all nonzero orders are currently incorrectly evaluated. Pass nonzero here only if you know what you are doing
 
 % VERIFY NUMBER OF OUTPUT ARGUMENTS
-nargoutchk(2,8);
+nargoutchk(2,9);
 
 memstat=[];
 
@@ -92,7 +92,8 @@ KzT = conj(sqrt((Trn.er2*Trn.ur2)*I0 - Kx.^2 - Ky.^2));
 
 %Caculate the P and Q in free space
 Kz0 = conj(sqrt(I0 - Kx*Kx - Ky*Ky));
-kzMin=[min( abs([diag(Kz0),diag(KzR),diag(KzT)]) ,[],1),nan]';
+kzExt=[diag(Kz0),diag(KzR),diag(KzT)];
+kzMin=[min( abs([kzExt,real(kzExt)]) ,[],1),nan]';
 
 Q0 = [Kx*Ky, I0-Kx*Kx; Ky*Ky-I0, -Kx*Ky];                 %eigen-modes for the electric fields in free space
 % P0 = Q0;
@@ -360,8 +361,11 @@ end
 if nargout>=4
     varargout{2}=T2;%E_trn;
 end
-if nargout>=5
-    varargout{3}=kzMin;
+if nargout>=7
+    varargout{5}=kzMin;
+end
+if nargout>=8
+    varargout{6}=kzExt;
 end
 if nargout>=6
     varargout{4}=E_src;
@@ -386,12 +390,12 @@ else
     field=[];
     field.IsFieldSet=0;
 end
-if nargout>=7
-    varargout{5}=field;
+if nargout>=5
+    varargout{3}=field;
 end
 memstat(1:3,end+1) = MemRecordState();
-if nargout>=8
-    varargout{6}=memstat;
+if nargout>=9
+    varargout{7}=memstat;
 end
 
-    
+
