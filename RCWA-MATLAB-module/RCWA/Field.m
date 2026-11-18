@@ -218,6 +218,14 @@ classdef Field < matlab.mixin.Copyable % & handle
             end
             CheckPrerequisitesOfMonochromaticField(Field);
             [numLayer,Z_position] = FindLayer(Field,Field.LayerZ);
+            switch size(Field.W_V,1)
+                case 1
+                    compactWV=0;
+                case 2
+                    compactWV=1;
+                otherwise
+                    error(['Unknown field structure. W_V cell size is' num2str(size(field.W_V))]);
+            end
             NH = length(Field.Kx);
             Z = zeros(2*NH,2*NH);
 %             C1 = Field.W_V{1,1}\Field.W_V_ref*Field.C_input;          % define input C at the first layer
@@ -228,16 +236,26 @@ classdef Field < matlab.mixin.Copyable % & handle
                     Elamda1 = diag(exp(-Middle));       % cacualte diangal lamda
                     Elamda2 = diag(exp( Middle)); 
                     Elamda_Diag = [Elamda1,Z;Z,Elamda2];
-                    C = Field.W_V{1,n}\S_U;          % define input C at the each layer
-                    S_U = Field.W_V{1,n}*Elamda_Diag*C;    % input for the first layer
+                    if compactWV
+                        WV=[ Field.W_V{1,n}, Field.W_V{1,n}; -Field.W_V{2,n}, Field.W_V{2,n} ];
+                    else
+                        WV=Field.W_V{1,n}; %[W,W,-V,V]
+                    end
+                    C = WV\S_U;          % define input C at the each layer
+                    S_U = WV*Elamda_Diag*C;    % input for the first layer
                 end
             end
             Middle =diag(Field.LAM{1,numLayer})*Field.k0*Z_position;
             Elamda1 = diag(exp(-Middle));
             Elamda2 = diag(exp(Middle));
             Elamda_Diag = [Elamda1,Z;Z,Elamda2];
-            C = Field.W_V{1,numLayer}\S_U;
-            S_U = Field.W_V{1,numLayer}*Elamda_Diag*C;
+            if compactWV
+                WV=[ Field.W_V{1,numLayer}, Field.W_V{1,numLayer}; -Field.W_V{2,numLayer}, Field.W_V{2,numLayer} ];
+            else
+                WV=Field.W_V{1,numLayer}; %[W,W,-V,V]
+            end
+            C = WV\S_U;
+            S_U = WV*Elamda_Diag*C;
             S_x = S_U(1:NH,1);
             S_y = S_U(NH+1:2*NH,1);
             U_x = S_U(2*NH+1:3*NH,1);
@@ -277,6 +295,14 @@ classdef Field < matlab.mixin.Copyable % & handle
             for i = 1:num_layer
                 [num_position_Layer(i,1),num_position_Layer(i,2)] = FindLayer(Field,Field.GridZ(i));
             end
+            switch size(Field.W_V,1)
+                case 1
+                    compactWV=0;
+                case 2
+                    compactWV=1;
+                otherwise
+                    error(['Unknown field structure. W_V cell size is' num2str(size(field.W_V))]);
+            end
             NH = length(Field.Kx);
             Z = zeros(2*NH,2*NH);
             S_U_C = Field.W_V_ref*Field.C_input;                       % defint the input C in the first layer
@@ -290,8 +316,13 @@ classdef Field < matlab.mixin.Copyable % & handle
                 Elamda1 = diag(exp(-Middle));       % cacualte diangal lamda
                 Elamda2 = diag(exp( Middle));
                 Elamda_Diag = [Elamda1,Z;Z,Elamda2];
-                C = Field.W_V{1,n}\C_input_layer{1,n};          % define input C at the each layer
-                C_input_layer{1,n+1} = Field.W_V{1,n}*Elamda_Diag*C;    % input for the first layer
+                if compactWV
+                    WV=[ Field.W_V{1,n}, Field.W_V{1,n}; -Field.W_V{2,n}, Field.W_V{2,n} ];
+                else
+                    WV=Field.W_V{1,n}; %[W,W,-V,V]
+                end
+                C = WV\C_input_layer{1,n};          % define input C at the each layer
+                C_input_layer{1,n+1} = WV*Elamda_Diag*C;    % input for the first layer
             end
             
             %initilize each layer
@@ -303,8 +334,13 @@ classdef Field < matlab.mixin.Copyable % & handle
                 Elamda1 = diag(exp(-Middle));       % cacualte diangal lamda
                 Elamda2 = diag(exp( Middle));
                 Elamda_Diag = [Elamda1,Z;Z,Elamda2];
-                C = Field.W_V{1,caculated_layer}\C_input_layer{1,caculated_layer};          % define input C at the each layer
-                S_U = Field.W_V{1,caculated_layer}*Elamda_Diag*C;    % input for the first layer
+                if compactWV
+                    WV=[ Field.W_V{1,caculated_layer}, Field.W_V{1,caculated_layer}; -Field.W_V{2,caculated_layer}, Field.W_V{2,caculated_layer} ];
+                else
+                    WV=Field.W_V{1,caculated_layer}; %[W,W,-V,V]
+                end
+                C = WV\C_input_layer{1,caculated_layer};          % define input C at the each layer
+                S_U = WV*Elamda_Diag*C;    % input for the first layer
                 S_x = S_U(1:NH,1);
                 S_y = S_U(NH+1:2*NH,1);
                 U_x = S_U(2*NH+1:3*NH,1);

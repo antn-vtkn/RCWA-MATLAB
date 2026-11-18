@@ -172,7 +172,13 @@ for n = 1: sum(device.ilayer)
     
     % Record the parameters for reconstructe E and H field
     if CondRecordField == 1
-        field.W_V{1,n} = [W,W;-V,V];
+        if 0 %let's save some memory
+            field.W_V{1,n} = [W,W;-V,V];
+        else
+            field.W_V{1,n} = W;
+            field.W_V{2,n} = V;
+%         field.LAMD{1,n} = diag(LAM);
+        end
         field.LAM{1,n} = sparse(LAM);
     end
     
@@ -380,8 +386,16 @@ if CondRecordField == 1
     field.Kx = Kx;
     field.Ky = Ky;
     field.k0 = k0;
-    field.URC = device.URC;
-    field.ERC = device.ERC;
+    if ndims(device.URC)>3
+        field.URC=device.URC(:,:,:,wavenumber);
+    else
+        field.URC = device.URC;
+    end
+    if ndims(device.ERC)>3
+        field.ERC=device.ERC(:,:,:,wavenumber);
+    else
+        field.ERC = device.ERC;
+    end
     field.W_V_ref = sparse([W_ref,W_ref;-V_ref,V_ref]);
     field.W_V_trn = sparse([W_trn,W_trn;-V_trn,V_trn]);
     field.C_input = [C_src;C_ref];    % input for the first layer
